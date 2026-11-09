@@ -238,3 +238,46 @@ test("send handler reads the subject and warns on a reply-all reported as newMai
   assert.match(res.errorMessage, /Reply to more than the sender/);
   delete global.Office;
 });
+
+// --- inReplyTo (v1.0.5) ---
+test("inReplyTo marks a reply even without an RE: subject", () => {
+  const two = { to: [rcp("a@example.com"), rcp("b@example.com")], userEmail: me, composeType: "newMail" };
+  assert.deepEqual(rules(r.respiceEvaluate({ ...two, subject: "Budget", inReplyTo: "<abc@x>" }, {})), ["replyAll"]);
+  assert.deepEqual(r.respiceEvaluate({ ...two, subject: "Budget", inReplyTo: "" }, {}), []);
+});
+
+test("forwards are never replies, even with inReplyTo set", () => {
+  const two = { to: [rcp("a@example.com"), rcp("b@example.com")], userEmail: me, composeType: "newMail", inReplyTo: "<abc@x>" };
+  for (const subject of ["FW: Budget", "Fwd: x", "WG: x", "TR: x", "[External] FW: x"])
+    assert.deepEqual(r.respiceEvaluate({ ...two, subject }, {}), [], subject);
+  assert.deepEqual(r.respiceEvaluate({ ...two, composeType: "forward", subject: "Budget" }, {}), []);
+  assert.ok(!r.respiceIsForwardSubject("Fwiw: note"));
+  assert.ok(!r.respiceIsForwardSubject("Travel: plan"));
+});
+
+test("send handler uses inReplyTo from the item", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  mockOffice({
+    to: ok([rcp("a@example.com"), rcp("b@example.com")]), cc: ok([]), bcc: ok([]),
+    subject: ok("weekly sync"), inReplyTo: "<orig@example.com>", getComposeTypeAsync: composeNew
+  }, null);
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.equal(res.allowEvent, false);
+  assert.match(res.errorMessage, /Reply to more than the sender/);
+  delete global.Office;
+});
+
+test("inReplyTo getter that throws is treated as empty", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  const item = {
+    to: ok([rcp("a@example.com"), rcp("b@example.com")]), cc: ok([]), bcc: ok([]),
+    subject: ok("weekly sync"), getComposeTypeAsync: composeNew
+  };
+  Object.defineProperty(item, "inReplyTo", { get() { throw new Error("not supported"); } });
+  mockOffice(item, null);
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.deepEqual(res, { allowEvent: true });
+  delete global.Office;
+});

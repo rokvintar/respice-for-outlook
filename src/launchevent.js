@@ -192,9 +192,22 @@ function respiceIsReplySubject(subject) {
   return typeof subject === "string" && RESPICE_REPLY_PREFIX.test(subject);
 }
 
+var RESPICE_FORWARD_PREFIX = /^\s*(\[[^\]]*\]\s*)*(fw|fwd|wg|tr|rv|vb|doorst|posl|i|转发)\s*[:：]/i;
+
+function respiceIsForwardSubject(subject) {
+  return typeof subject === "string" && RESPICE_FORWARD_PREFIX.test(subject);
+}
+
+// Reply signals, strongest first:
+//   1. compose type "reply" (reliable only while the window is open; Mac/web report "newMail" at send time)
+//   2. inReplyTo: ID of the message being answered, stored on the draft itself (Mailbox 1.14)
+//   3. reply prefix in the subject (RE:, AW:, Odg: ...)
+// Forwards are excluded by compose type or by a forward prefix (FW:, WG:, TR: ...).
 function respiceIsReply(input) {
   if (input.composeType === "reply") return true;
   if (input.composeType === "forward") return false;
+  if (respiceIsForwardSubject(input.subject)) return false;
+  if (input.inReplyTo) return true;
   return respiceIsReplySubject(input.subject);
 }
 
@@ -292,6 +305,16 @@ function respiceTimed(label, makePromise, fallback, diag) {
   });
 }
 
+// Synchronous property, Mailbox 1.14+. Empty string when unsupported or not a reply.
+function respiceGetInReplyTo(item) {
+  try {
+    var v = item && item.inReplyTo;
+    return typeof v === "string" ? v : "";
+  } catch (e) {
+    return "";
+  }
+}
+
 function respiceGetSubject(item) {
   return new Promise(function (resolve) {
     var f = item && item.subject;
@@ -316,7 +339,7 @@ function respiceGatherInput(item, diag) {
     try {
       userEmail = Office.context.mailbox.userProfile.emailAddress || "";
     } catch (e) {}
-    return { to: v[0], cc: v[1], bcc: v[2], composeType: v[3].type, composeTypeRaw: v[3].raw, subject: v[4], userEmail: userEmail };
+    return { to: v[0], cc: v[1], bcc: v[2], composeType: v[3].type, composeTypeRaw: v[3].raw, subject: v[4], inReplyTo: respiceGetInReplyTo(item), userEmail: userEmail };
   });
 }
 
@@ -338,6 +361,7 @@ function respiceDescribeInput(input) {
   return {
     composeType: input.composeTypeRaw,
     replyBySubject: respiceIsReplySubject(input.subject),
+    inReplyTo: input.inReplyTo ? "set" : "empty",
     to: (input.to || []).length,
     cc: (input.cc || []).length,
     bcc: (input.bcc || []).length,
@@ -391,7 +415,7 @@ function onMessageSendHandler(event) {
     respiceGatherInput(Office.context.mailbox.item, diag)
       .then(function (input) {
         var d = respiceDescribeInput(input);
-        diag.push("composeType " + d.composeType + "; replyBySubject " + d.replyBySubject + "; to/cc/bcc " + d.to + "/" + d.cc + "/" + d.bcc);
+        diag.push("composeType " + d.composeType + "; inReplyTo " + d.inReplyTo + "; replyBySubject " + d.replyBySubject + "; to/cc/bcc " + d.to + "/" + d.cc + "/" + d.bcc);
         respiceTrace("gathered", d);
         var findings = respiceEvaluate(input, settings);
         if (!findings.length) return finish({ allowEvent: true }, "no warnings");
@@ -444,6 +468,7 @@ if (typeof module !== "undefined" && module.exports) {
     respiceEvaluate: respiceEvaluate,
     respiceFormatMessage: respiceFormatMessage,
     respiceIsReplySubject: respiceIsReplySubject,
+    respiceIsForwardSubject: respiceIsForwardSubject,
     RESPICE_CONFIG: RESPICE_CONFIG,
     onMessageSendHandler: onMessageSendHandler
   };
