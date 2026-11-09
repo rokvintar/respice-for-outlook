@@ -226,11 +226,18 @@ function respiceGetAsync(field) {
   });
 }
 
+// Resolves { type, raw } where raw describes exactly what Outlook returned (for diagnostics).
 function respiceGetComposeType(item) {
   return new Promise(function (resolve) {
-    if (!item || typeof item.getComposeTypeAsync !== "function") return resolve(null);
+    if (!item || typeof item.getComposeTypeAsync !== "function") {
+      return resolve({ type: null, raw: "getComposeTypeAsync not available" });
+    }
     item.getComposeTypeAsync(function (res) {
-      resolve(res.status === Office.AsyncResultStatus.Succeeded && res.value ? res.value.composeType : null);
+      if (res.status === Office.AsyncResultStatus.Succeeded && res.value) {
+        resolve({ type: res.value.composeType, raw: JSON.stringify(res.value) });
+      } else {
+        resolve({ type: null, raw: "failed: " + (res.error && res.error.message) });
+      }
     });
   });
 }
@@ -246,8 +253,34 @@ function respiceGatherInput(item) {
     try {
       userEmail = Office.context.mailbox.userProfile.emailAddress || "";
     } catch (e) {}
-    return { to: v[0], cc: v[1], bcc: v[2], composeType: v[3], userEmail: userEmail };
+    return { to: v[0], cc: v[1], bcc: v[2], composeType: v[3].type, composeTypeRaw: v[3].raw, userEmail: userEmail };
   });
+}
+
+// Diagnostics: a short trail of send-time runs, readable from the settings pane.
+// Uses localStorage (shared by the event runtime and the task pane on web / Mac / new Outlook);
+// silently does nothing where it is unavailable (classic Windows JS runtime).
+var RESPICE_TRACE_KEY = "respiceTrace";
+
+function respiceTrace(stage, data) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    var t = JSON.parse(localStorage.getItem(RESPICE_TRACE_KEY) || "[]");
+    t.push({ t: new Date().toISOString(), stage: stage, data: data || null });
+    localStorage.setItem(RESPICE_TRACE_KEY, JSON.stringify(t.slice(-30)));
+  } catch (e) {}
+}
+
+function respiceDescribeInput(input) {
+  return {
+    composeType: input.composeTypeRaw,
+    to: (input.to || []).length,
+    cc: (input.cc || []).length,
+    bcc: (input.bcc || []).length,
+    types: [].concat(input.to || [], input.cc || [], input.bcc || []).map(function (r) {
+      return r.recipientType;
+    })
+  };
 }
 
 function onMessageSendHandler(event) {
@@ -255,8 +288,10 @@ function onMessageSendHandler(event) {
   function finish(opts) {
     if (done) return;
     done = true;
+    respiceTrace("complete", { allowEvent: opts.allowEvent });
     event.completed(opts);
   }
+  respiceTrace("handler-start");
   try {
     var settings = respiceLoadSettings();
     var r = settings.rules;
@@ -264,6 +299,7 @@ function onMessageSendHandler(event) {
 
     respiceGatherInput(Office.context.mailbox.item)
       .then(function (input) {
+        respiceTrace("gathered", respiceDescribeInput(input));
         var findings = respiceEvaluate(input, settings);
         if (!findings.length) return finish({ allowEvent: true });
         finish({
@@ -272,10 +308,12 @@ function onMessageSendHandler(event) {
           errorMessageMarkdown: respiceFormatMessage(findings, true)
         });
       })
-      .catch(function () {
+      .catch(function (e) {
+        respiceTrace("error", String(e && e.message));
         finish({ allowEvent: true }); // fail open: never block mail because of an add-in error
       });
   } catch (e) {
+    respiceTrace("error", String(e && e.message));
     finish({ allowEvent: true });
   }
 }
@@ -286,6 +324,7 @@ if (
   typeof Office.actions.associate === "function" &&
   typeof RESPICE_SKIP_ASSOCIATE === "undefined"
 ) {
+  respiceTrace("runtime-loaded");
   Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
 }
 

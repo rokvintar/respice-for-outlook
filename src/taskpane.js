@@ -66,12 +66,33 @@
     out.textContent = "Checking…";
     respiceGatherInput(Office.context.mailbox.item)
       .then(function (input) {
-        var findings = respiceEvaluate(input, respiceLoadSettings());
-        out.textContent = findings.length ? respiceFormatMessage(findings, false) : "No warnings. This message would send without a prompt.";
+        var settings = respiceLoadSettings();
+        var findings = respiceEvaluate(input, settings);
+        var result = findings.length ? respiceFormatMessage(findings, false) : "No warnings. This message would send without a prompt.";
+        var details = respiceDescribeInput(input);
+        details.rules = settings.rules;
+        details.internalDomains = settings.internalDomains.length ? settings.internalDomains : "(own domain) " + userDomain();
+        out.textContent = result + "\n\n--- details ---\n" + JSON.stringify(details, null, 1);
       })
       .catch(function (e) {
         out.textContent = "Error: " + (e && e.message);
       });
+  }
+
+  function showLog() {
+    var out = $("log");
+    try {
+      var t = JSON.parse(localStorage.getItem(RESPICE_TRACE_KEY) || "[]");
+      out.textContent = t.length
+        ? t
+            .map(function (e) {
+              return e.t.slice(11, 19) + "  " + e.stage + (e.data ? "  " + JSON.stringify(e.data) : "");
+            })
+            .join("\n")
+        : "(empty: no send-time run recorded in this Outlook yet)";
+    } catch (e) {
+      out.textContent = "(log unavailable: " + e.message + ")";
+    }
   }
 
   Office.onReady(function () {
@@ -87,6 +108,14 @@
       $("test-section").hidden = false;
       $("test").onclick = runTest;
     }
-    $("version").textContent = "Respice for Outlook 1.0.0";
+    $("log-refresh").onclick = showLog;
+    $("log-clear").onclick = function () {
+      try {
+        localStorage.removeItem(RESPICE_TRACE_KEY);
+      } catch (e) {}
+      showLog();
+    };
+    showLog();
+    $("version").textContent = "Respice for Outlook 1.0.1";
   });
 })();
