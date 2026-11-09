@@ -65,3 +65,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 #status.error { color: var(--error); }
 pre { white-space: pre-wrap; background: var(--field); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-size: 12px; }
 code { font-size: 12px; }
+details { margin-top: 16px; }
+details > summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+details[open] > summary { margin-bottom: 6px; }
+#test-details-box { margin-top: 8px; }

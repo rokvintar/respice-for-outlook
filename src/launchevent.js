@@ -86,8 +86,7 @@ function respiceNormalizeSettings(raw) {
     }),
     listPatterns: respiceParseLines(s.listPatterns || []),
     treatOutlookDistributionListsAsLists: respiceBool(s.treatOutlookDistributionListsAsLists, d.treatOutlookDistributionListsAsLists),
-    maxRecipients: max,
-    diagnostic: s.diagnostic === true
+    maxRecipients: max
   };
 }
 
@@ -403,22 +402,11 @@ function onMessageSendHandler(event) {
   var done = false;
   var settings = respiceNormalizeSettings(null);
 
-  function diagMessage(result) {
-    return respiceClip("Respice diagnostics (" + (Date.now() - t0) + "ms):\n" + diag.join("\n") + "\nResult: " + result);
-  }
-
   function finish(opts, result) {
     if (done) return;
     done = true;
     clearTimeout(watchdog);
-    if (settings.diagnostic) {
-      if (!result) {
-        result = "warn";
-        if (opts.allowEvent) result = "allow";
-      }
-      opts = { allowEvent: false, errorMessage: diagMessage(result) };
-    }
-    respiceTrace("complete", { allowEvent: opts.allowEvent, diag: diag });
+    respiceTrace("complete", { allowEvent: opts.allowEvent, result: result, ms: Date.now() - t0, steps: diag });
     try {
       event.completed(opts);
     } catch (e) {

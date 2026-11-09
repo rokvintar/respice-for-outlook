@@ -28,7 +28,6 @@
     $("list-patterns").value = s.listPatterns.join("\n");
     $("treat-dl").checked = s.treatOutlookDistributionListsAsLists;
     $("max-recipients").value = s.maxRecipients;
-    $("diagnostic").checked = s.diagnostic;
     var d = userDomain();
     $("internal-domains").placeholder = d || "example.com";
     $("internal-hint").textContent = d ? "Leave empty to use your own domain: " + d : "";
@@ -45,8 +44,7 @@
       internalDomains: $("internal-domains").value,
       listPatterns: $("list-patterns").value,
       treatOutlookDistributionListsAsLists: $("treat-dl").checked,
-      maxRecipients: $("max-recipients").value,
-      diagnostic: $("diagnostic").checked
+      maxRecipients: $("max-recipients").value
     });
   }
 
@@ -65,7 +63,9 @@
 
   function runTest() {
     var out = $("test-result");
+    out.hidden = false;
     out.textContent = "Checking…";
+    $("test-details-box").hidden = true;
     respiceGatherInput(Office.context.mailbox.item)
       .then(function (input) {
         var settings = respiceLoadSettings();
@@ -74,7 +74,9 @@
         var details = respiceDescribeInput(input);
         details.rules = settings.rules;
         details.internalDomains = settings.internalDomains.length ? settings.internalDomains : "(own domain) " + userDomain();
-        out.textContent = result + "\n\n--- details ---\n" + JSON.stringify(details, null, 1);
+        out.textContent = result;
+        $("test-details").textContent = JSON.stringify(details, null, 1);
+        $("test-details-box").hidden = false;
       })
       .catch(function (e) {
         out.textContent = "Error: " + (e && e.message);
@@ -111,6 +113,9 @@
       $("test").onclick = runTest;
     }
     $("log-refresh").onclick = showLog;
+    $("log-section").addEventListener("toggle", function () {
+      if ($("log-section").open) showLog();
+    });
     $("log-clear").onclick = function () {
       try {
         localStorage.removeItem(RESPICE_TRACE_KEY);
@@ -118,6 +123,6 @@
       showLog();
     };
     showLog();
-    $("version").textContent = "Respice for Outlook 1.0.6";
+    $("version").textContent = "Respice for Outlook 1.0.7";
   });
 })();

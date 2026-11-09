@@ -168,17 +168,13 @@ test("if event.completed throws, it is retried with the simplest options", async
   delete global.Office;
 });
 
-test("diagnostic mode always shows a dialog listing the steps", async () => {
+test("an old saved diagnostic flag is ignored: no dialog when nothing is wrong", async () => {
   r.RESPICE_CONFIG.stepTimeoutMs = 50;
   r.RESPICE_CONFIG.watchdogMs = 1000;
-  mockOffice({ to: ok([rcp("a@example.com")]), cc: never, bcc: ok([]), getComposeTypeAsync: composeNew }, { diagnostic: true });
+  mockOffice({ to: ok([rcp("a@example.com")]), cc: ok([]), bcc: ok([]), getComposeTypeAsync: composeNew }, { diagnostic: true });
   const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
-  assert.equal(res.allowEvent, false);
-  assert.match(res.errorMessage, /Respice diagnostics/);
-  assert.match(res.errorMessage, /cc TIMEOUT/);
-  assert.match(res.errorMessage, /to ok/);
-  assert.match(res.errorMessage, /Result: no warnings/);
-  assert.ok(res.errorMessage.length <= 490);
+  assert.deepEqual(res, { allowEvent: true });
+  assert.equal("diagnostic" in r.respiceNormalizeSettings({ diagnostic: true }), false);
   delete global.Office;
 });
 

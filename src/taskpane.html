@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Respice for Outlook</title>
-  <link rel="stylesheet" href="taskpane.css?v=1.0.6">
+  <link rel="stylesheet" href="taskpane.css?v=1.0.7">
   <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <script>var RESPICE_SKIP_ASSOCIATE = true;</script>
-  <script type="text/javascript" src="launchevent.js?v=1.0.6"></script>
-  <script type="text/javascript" src="taskpane.js?v=1.0.6"></script>
+  <script type="text/javascript" src="launchevent.js?v=1.0.7"></script>
+  <script type="text/javascript" src="taskpane.js?v=1.0.7"></script>
 </head>
 <body>
   <main>
@@ -54,23 +54,22 @@
       <h2>Test this message</h2>
       <p class="hint">Runs the saved rules against the message you are composing. Nothing is sent.</p>
       <button id="test">Check now</button>
-      <pre id="test-result"></pre>
+      <pre id="test-result" hidden></pre>
+      <details id="test-details-box" hidden>
+        <summary>Details</summary>
+        <pre id="test-details"></pre>
+      </details>
     </section>
 
-    <section>
-      <h2>Troubleshooting</h2>
-      <label class="check"><input type="checkbox" id="diagnostic"> Diagnostic mode: every Send shows a dialog with what the add-in did. Use <b>Send Anyway</b> to send. Remember to Save.</label>
-    </section>
-
-    <section>
-      <h2>Send-time log</h2>
-      <p class="hint">What the add-in did on your last sends (times in UTC). Used for troubleshooting.</p>
+    <details id="log-section">
+      <summary>Send-time log</summary>
+      <p class="hint">What the add-in did on your last sends (times in UTC). For troubleshooting.</p>
       <div class="actions">
         <button id="log-refresh">Refresh</button>
         <button id="log-clear">Clear</button>
       </div>
       <pre id="log"></pre>
-    </section>
+    </details>
 
     <p class="muted small" id="version"></p>
   </main>
