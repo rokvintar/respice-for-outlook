@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Respice for Outlook</title>
+  <link rel="stylesheet" href="taskpane.css">
+  <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script>var RESPICE_SKIP_ASSOCIATE = true;</script>
+  <script type="text/javascript" src="launchevent.js"></script>
+  <script type="text/javascript" src="taskpane.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Respice for Outlook</h1>
+    <p class="muted">Warns you at send time. Every rule checks To, Cc and Bcc. Settings are stored in your mailbox only.</p>
+
+    <section>
+      <h2>Rules</h2>
+
+      <div class="rule">
+        <label class="switch"><input type="checkbox" id="rule-external"> <span>1. External recipient</span></label>
+        <label for="internal-domains" class="field-label">Internal domains (one per line, subdomains included)</label>
+        <textarea id="internal-domains" rows="3" spellcheck="false"></textarea>
+        <p class="hint" id="internal-hint"></p>
+      </div>
+
+      <div class="rule">
+        <label class="switch"><input type="checkbox" id="rule-list"> <span>2. Mailing list</span></label>
+        <label for="list-patterns" class="field-label">List addresses (one per line, <code>*</code> and <code>?</code> wildcards allowed, <code>#</code> starts a comment)</label>
+        <textarea id="list-patterns" rows="6" spellcheck="false" placeholder="all@example.com&#10;*-all@example.com&#10;dl-*@example.com"></textarea>
+        <label class="check"><input type="checkbox" id="treat-dl"> Also treat anything Outlook marks as a distribution list as a list</label>
+      </div>
+
+      <div class="rule">
+        <label class="switch"><input type="checkbox" id="rule-toomany"> <span>3. Too many recipients</span></label>
+        <label for="max-recipients" class="field-label">Warn when To + Cc + Bcc exceeds</label>
+        <input type="number" id="max-recipients" min="1" step="1">
+      </div>
+
+      <div class="rule">
+        <label class="switch"><input type="checkbox" id="rule-replyall"> <span>4. Reply to more than the sender</span></label>
+        <p class="hint">Outlook does not tell add-ins Reply from Reply all, so this fires on any reply with more than one recipient.</p>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button id="save" class="primary">Save</button>
+      <button id="reset">Reset to defaults</button>
+    </div>
+    <p id="status" role="status"></p>
+
+    <section id="test-section" hidden>
+      <h2>Test this message</h2>
+      <p class="hint">Runs the saved rules against the message you are composing. Nothing is sent.</p>
+      <button id="test">Check now</button>
+      <pre id="test-result"></pre>
+    </section>
+
+    <p class="muted small" id="version"></p>
+  </main>
+</body>
+</html>

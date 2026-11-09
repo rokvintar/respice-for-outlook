@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Respice for Outlook</title>
+  <link rel="icon" href="assets/icon-32.png">
+  <style>
+    :root { --bg: #fff; --fg: #1f1f1f; --muted: #616161; --accent: #0f6cbd; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #1f1f1f; --fg: #f0f0f0; --muted: #adadad; --accent: #479ef5; } }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 "Segoe UI", -apple-system, sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 32px 16px; }
+    h1 { display: flex; gap: 12px; align-items: center; margin: 0 0 8px; }
+    p, li { color: var(--fg); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1><img src="assets/icon-64.png" width="40" height="40" alt="">Respice for Outlook</h1>
+    <p class="muted">An Outlook add-in that makes you look once more before a risky email goes out.</p>
+    <ul>
+      <li>External recipients</li>
+      <li>Mailing lists</li>
+      <li>More than X recipients</li>
+      <li>Replies to more than the sender</li>
+    </ul>
+    <p>Each rule can be switched on or off. Every rule checks To, Cc and Bcc.</p>
+    <h2>Privacy</h2>
+    <p>Recipients are checked inside Outlook. Settings are stored in your own mailbox. Nothing is sent to any server, and there is no analytics or tracking.</p>
+    <p><a href="manifest.xml">manifest.xml</a> · <a href="README.md">Install instructions</a></p>
+  </main>
+</body>
+</html>
