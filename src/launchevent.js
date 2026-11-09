@@ -53,28 +53,40 @@ function respiceParseLines(text) {
   return out;
 }
 
+// Note: no ternary operators (? :), async/await or post-ES2016 syntax in this file.
+// Classic Outlook on Windows before Version 2403 fails to load scripts that use them.
+// test/syntax.test.js enforces this.
+
+function respiceBool(value, fallback) {
+  if (typeof value === "boolean") return value;
+  return fallback;
+}
+
+function respiceObject(value) {
+  if (value && typeof value === "object") return value;
+  return {};
+}
+
 function respiceNormalizeSettings(raw) {
   var d = RESPICE_DEFAULTS;
-  var s = raw && typeof raw === "object" ? raw : {};
-  var rules = s.rules && typeof s.rules === "object" ? s.rules : {};
+  var s = respiceObject(raw);
+  var rules = respiceObject(s.rules);
   var max = parseInt(s.maxRecipients, 10);
+  if (!(isFinite(max) && max >= 1)) max = d.maxRecipients;
   return {
     version: d.version,
     rules: {
-      external: typeof rules.external === "boolean" ? rules.external : d.rules.external,
-      mailingList: typeof rules.mailingList === "boolean" ? rules.mailingList : d.rules.mailingList,
-      tooMany: typeof rules.tooMany === "boolean" ? rules.tooMany : d.rules.tooMany,
-      replyAll: typeof rules.replyAll === "boolean" ? rules.replyAll : d.rules.replyAll
+      external: respiceBool(rules.external, d.rules.external),
+      mailingList: respiceBool(rules.mailingList, d.rules.mailingList),
+      tooMany: respiceBool(rules.tooMany, d.rules.tooMany),
+      replyAll: respiceBool(rules.replyAll, d.rules.replyAll)
     },
     internalDomains: respiceParseLines(s.internalDomains || []).map(function (x) {
       return x.replace(/^.*@/, "").replace(/^\*?\./, "");
     }),
     listPatterns: respiceParseLines(s.listPatterns || []),
-    treatOutlookDistributionListsAsLists:
-      typeof s.treatOutlookDistributionListsAsLists === "boolean"
-        ? s.treatOutlookDistributionListsAsLists
-        : d.treatOutlookDistributionListsAsLists,
-    maxRecipients: isFinite(max) && max >= 1 ? max : d.maxRecipients,
+    treatOutlookDistributionListsAsLists: respiceBool(s.treatOutlookDistributionListsAsLists, d.treatOutlookDistributionListsAsLists),
+    maxRecipients: max,
     diagnostic: s.diagnostic === true
   };
 }
@@ -136,9 +148,8 @@ function respiceEvaluate(input, settings) {
   var recipients = respiceUniqueRecipients(input);
   var findings = [];
 
-  var internal = s.internalDomains.length
-    ? s.internalDomains
-    : [respiceDomainOf(input.userEmail)].filter(Boolean);
+  var internal = s.internalDomains;
+  if (!internal.length) internal = [respiceDomainOf(input.userEmail)].filter(Boolean);
 
   if (s.rules.external && internal.length) {
     var ext = recipients.filter(function (r) {
@@ -215,10 +226,17 @@ function respiceShowName(r) {
   return r.emailAddress || r.displayName || "?";
 }
 
+// Smart Alerts dialog text limit is about 500 characters.
+function respiceClip(text) {
+  if (text.length > 490) return text.slice(0, 487) + "...";
+  return text;
+}
+
 function respiceSummarizeItems(items, max) {
   if (!items.length) return "";
   var shown = items.slice(0, max).join(", ");
-  return items.length > max ? shown + " +" + (items.length - max) + " more" : shown;
+  if (items.length > max) return shown + " +" + (items.length - max) + " more";
+  return shown;
 }
 
 // Smart Alerts truncates long dialog text, so keep it compact.
@@ -226,11 +244,11 @@ function respiceFormatMessage(findings, markdown) {
   var lines = findings.map(function (f) {
     var what = respiceSummarizeItems(f.items, 3);
     var parts = [what, f.detail].filter(Boolean).join(" · ");
-    return markdown ? "- **" + f.label + ":** " + parts : "• " + f.label + ": " + parts;
+    if (markdown) return "- **" + f.label + ":** " + parts;
+    return "• " + f.label + ": " + parts;
   });
   var head = "Check before sending:";
-  var text = head + "\n" + lines.join("\n");
-  return text.length > 490 ? text.slice(0, 487) + "..." : text;
+  return respiceClip(head + "\n" + lines.join("\n"));
 }
 
 // ---------------------------------------------------------------------------
@@ -254,7 +272,8 @@ function respiceGetAsync(field) {
   return new Promise(function (resolve) {
     if (!field || typeof field.getAsync !== "function") return resolve([]);
     field.getAsync(function (res) {
-      resolve(res.status === Office.AsyncResultStatus.Succeeded && res.value ? res.value : []);
+      if (res.status === Office.AsyncResultStatus.Succeeded && res.value) return resolve(res.value);
+      resolve([]);
     });
   });
 }
@@ -309,7 +328,8 @@ function respiceTimed(label, makePromise, fallback, diag) {
 function respiceGetInReplyTo(item) {
   try {
     var v = item && item.inReplyTo;
-    return typeof v === "string" ? v : "";
+    if (typeof v === "string") return v;
+    return "";
   } catch (e) {
     return "";
   }
@@ -320,7 +340,8 @@ function respiceGetSubject(item) {
     var f = item && item.subject;
     if (!f || typeof f.getAsync !== "function") return resolve("");
     f.getAsync(function (res) {
-      resolve(res.status === Office.AsyncResultStatus.Succeeded && typeof res.value === "string" ? res.value : "");
+      if (res.status === Office.AsyncResultStatus.Succeeded && typeof res.value === "string") return resolve(res.value);
+      resolve("");
     });
   });
 }
@@ -357,11 +378,16 @@ function respiceTrace(stage, data) {
   } catch (e) {}
 }
 
+function respiceSetOrEmpty(v) {
+  if (v) return "set";
+  return "empty";
+}
+
 function respiceDescribeInput(input) {
   return {
     composeType: input.composeTypeRaw,
     replyBySubject: respiceIsReplySubject(input.subject),
-    inReplyTo: input.inReplyTo ? "set" : "empty",
+    inReplyTo: respiceSetOrEmpty(input.inReplyTo),
     to: (input.to || []).length,
     cc: (input.cc || []).length,
     bcc: (input.bcc || []).length,
@@ -378,8 +404,7 @@ function onMessageSendHandler(event) {
   var settings = respiceNormalizeSettings(null);
 
   function diagMessage(result) {
-    var text = "Respice diagnostics (" + (Date.now() - t0) + "ms):\n" + diag.join("\n") + "\nResult: " + result;
-    return text.length > 490 ? text.slice(0, 487) + "..." : text;
+    return respiceClip("Respice diagnostics (" + (Date.now() - t0) + "ms):\n" + diag.join("\n") + "\nResult: " + result);
   }
 
   function finish(opts, result) {
@@ -387,7 +412,11 @@ function onMessageSendHandler(event) {
     done = true;
     clearTimeout(watchdog);
     if (settings.diagnostic) {
-      opts = { allowEvent: false, errorMessage: diagMessage(result || (opts.allowEvent ? "allow" : "warn")) };
+      if (!result) {
+        result = "warn";
+        if (opts.allowEvent) result = "allow";
+      }
+      opts = { allowEvent: false, errorMessage: diagMessage(result) };
     }
     respiceTrace("complete", { allowEvent: opts.allowEvent, diag: diag });
     try {

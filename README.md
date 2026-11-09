@@ -87,7 +87,7 @@ While composing, **Check now** runs the rules against the current draft without 
 
 ## Development
 
-No build step and no dependencies. Plain HTML/JS, served as-is.
+No build step and no runtime dependencies. Plain HTML/JS, served as-is. Tests use Node's built-in runner plus `acorn` (dev only).
 
 ```
 src/launchevent.js   rule logic + OnMessageSend handler (self-contained: classic Windows loads it without a DOM)
@@ -98,8 +98,11 @@ test/                Node unit tests
 ```
 
 ```bash
+npm install   # once, dev dependencies for the syntax check
 npm test
 ```
+
+`src/launchevent.js` must stay ECMAScript 2016 with no `? :` operators, because classic Outlook on Windows before Version 2403 won't load it otherwise. `test/syntax.test.js` enforces this.
 
 Bump `<Version>` in `manifest.template.xml` and rebuild the manifest whenever the manifest changes. Code-only changes go live as soon as GitHub Pages redeploys.
 

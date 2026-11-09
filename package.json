@@ -8,5 +8,9 @@
     "test": "node --test test/*.test.js",
     "manifest": "node scripts/build-manifest.mjs",
     "validate": "npx --yes office-addin-manifest validate manifest.xml"
+  },
+  "devDependencies": {
+    "acorn": "^8.19.0",
+    "acorn-walk": "^8.3.5"
   }
 }

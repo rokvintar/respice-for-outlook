@@ -118,6 +118,6 @@
       showLog();
     };
     showLog();
-    $("version").textContent = "Respice for Outlook 1.0.5";
+    $("version").textContent = "Respice for Outlook 1.0.6";
   });
 })();
