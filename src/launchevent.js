@@ -74,7 +74,8 @@ function respiceNormalizeSettings(raw) {
       typeof s.treatOutlookDistributionListsAsLists === "boolean"
         ? s.treatOutlookDistributionListsAsLists
         : d.treatOutlookDistributionListsAsLists,
-    maxRecipients: isFinite(max) && max >= 1 ? max : d.maxRecipients
+    maxRecipients: isFinite(max) && max >= 1 ? max : d.maxRecipients,
+    diagnostic: s.diagnostic === true
   };
 }
 
@@ -217,6 +218,11 @@ function respiceLoadSettings() {
   }
 }
 
+var RESPICE_CONFIG = {
+  stepTimeoutMs: 2000, // per Outlook API call
+  watchdogMs: 4000     // whole handler; Outlook shows "taking longer than expected" after 5 s
+};
+
 function respiceGetAsync(field) {
   return new Promise(function (resolve) {
     if (!field || typeof field.getAsync !== "function") return resolve([]);
@@ -242,12 +248,44 @@ function respiceGetComposeType(item) {
   });
 }
 
-function respiceGatherInput(item) {
+// Runs makePromise() with a timeout; never rejects. Records "label ok 12ms" / "label TIMEOUT" / "label ERROR ..." in diag.
+function respiceTimed(label, makePromise, fallback, diag) {
+  var t0 = Date.now();
+  return new Promise(function (resolve) {
+    var settled = false;
+    function settle(value, note) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      diag.push(label + " " + note);
+      resolve(value);
+    }
+    var timer = setTimeout(function () {
+      settle(fallback, "TIMEOUT");
+    }, RESPICE_CONFIG.stepTimeoutMs);
+    try {
+      makePromise().then(
+        function (v) {
+          settle(v, "ok " + (Date.now() - t0) + "ms");
+        },
+        function (e) {
+          settle(fallback, "ERROR " + (e && e.message));
+        }
+      );
+    } catch (e) {
+      settle(fallback, "ERROR " + (e && e.message));
+    }
+  });
+}
+
+function respiceGatherInput(item, diag) {
+  diag = diag || [];
+  var noType = { type: null, raw: "unavailable" };
   return Promise.all([
-    respiceGetAsync(item.to),
-    respiceGetAsync(item.cc),
-    respiceGetAsync(item.bcc),
-    respiceGetComposeType(item)
+    respiceTimed("to", function () { return respiceGetAsync(item.to); }, [], diag),
+    respiceTimed("cc", function () { return respiceGetAsync(item.cc); }, [], diag),
+    respiceTimed("bcc", function () { return respiceGetAsync(item.bcc); }, [], diag),
+    respiceTimed("composeType", function () { return respiceGetComposeType(item); }, noType, diag)
   ]).then(function (v) {
     var userEmail = "";
     try {
@@ -284,37 +322,71 @@ function respiceDescribeInput(input) {
 }
 
 function onMessageSendHandler(event) {
+  var t0 = Date.now();
+  var diag = ["handler-start"];
   var done = false;
-  function finish(opts) {
+  var settings = respiceNormalizeSettings(null);
+
+  function diagMessage(result) {
+    var text = "Respice diagnostics (" + (Date.now() - t0) + "ms):\n" + diag.join("\n") + "\nResult: " + result;
+    return text.length > 490 ? text.slice(0, 487) + "..." : text;
+  }
+
+  function finish(opts, result) {
     if (done) return;
     done = true;
-    respiceTrace("complete", { allowEvent: opts.allowEvent });
-    event.completed(opts);
+    clearTimeout(watchdog);
+    if (settings.diagnostic) {
+      opts = { allowEvent: false, errorMessage: diagMessage(result || (opts.allowEvent ? "allow" : "warn")) };
+    }
+    respiceTrace("complete", { allowEvent: opts.allowEvent, diag: diag });
+    try {
+      event.completed(opts);
+    } catch (e) {
+      // Never leave Outlook waiting: fall back to the simplest possible completion.
+      try {
+        event.completed({ allowEvent: true });
+      } catch (e2) {}
+    }
   }
+
+  var watchdog = setTimeout(function () {
+    diag.push("WATCHDOG fired");
+    finish({ allowEvent: true }, "watchdog: sent without check");
+  }, RESPICE_CONFIG.watchdogMs);
+
   respiceTrace("handler-start");
   try {
-    var settings = respiceLoadSettings();
+    settings = respiceLoadSettings();
+    diag.push("settings ok");
     var r = settings.rules;
-    if (!r.external && !r.mailingList && !r.tooMany && !r.replyAll) return finish({ allowEvent: true });
+    if (!r.external && !r.mailingList && !r.tooMany && !r.replyAll) return finish({ allowEvent: true }, "all rules off");
 
-    respiceGatherInput(Office.context.mailbox.item)
+    respiceGatherInput(Office.context.mailbox.item, diag)
       .then(function (input) {
-        respiceTrace("gathered", respiceDescribeInput(input));
+        var d = respiceDescribeInput(input);
+        diag.push("composeType " + d.composeType + "; to/cc/bcc " + d.to + "/" + d.cc + "/" + d.bcc);
+        respiceTrace("gathered", d);
         var findings = respiceEvaluate(input, settings);
-        if (!findings.length) return finish({ allowEvent: true });
-        finish({
-          allowEvent: false,
-          errorMessage: respiceFormatMessage(findings, false),
-          errorMessageMarkdown: respiceFormatMessage(findings, true)
-        });
+        if (!findings.length) return finish({ allowEvent: true }, "no warnings");
+        finish(
+          {
+            allowEvent: false,
+            errorMessage: respiceFormatMessage(findings, false),
+            errorMessageMarkdown: respiceFormatMessage(findings, true)
+          },
+          findings.map(function (f) { return f.rule; }).join(", ")
+        );
       })
       .catch(function (e) {
+        diag.push("ERROR " + (e && e.message));
         respiceTrace("error", String(e && e.message));
-        finish({ allowEvent: true }); // fail open: never block mail because of an add-in error
+        finish({ allowEvent: true }, "error"); // fail open: never block mail because of an add-in error
       });
   } catch (e) {
+    diag.push("ERROR " + (e && e.message));
     respiceTrace("error", String(e && e.message));
-    finish({ allowEvent: true });
+    finish({ allowEvent: true }, "error");
   }
 }
 
@@ -337,6 +409,7 @@ if (typeof module !== "undefined" && module.exports) {
     respiceMatchesList: respiceMatchesList,
     respiceEvaluate: respiceEvaluate,
     respiceFormatMessage: respiceFormatMessage,
+    RESPICE_CONFIG: RESPICE_CONFIG,
     onMessageSendHandler: onMessageSendHandler
   };
 }

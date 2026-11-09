@@ -28,6 +28,7 @@
     $("list-patterns").value = s.listPatterns.join("\n");
     $("treat-dl").checked = s.treatOutlookDistributionListsAsLists;
     $("max-recipients").value = s.maxRecipients;
+    $("diagnostic").checked = s.diagnostic;
     var d = userDomain();
     $("internal-domains").placeholder = d || "example.com";
     $("internal-hint").textContent = d ? "Leave empty to use your own domain: " + d : "";
@@ -44,7 +45,8 @@
       internalDomains: $("internal-domains").value,
       listPatterns: $("list-patterns").value,
       treatOutlookDistributionListsAsLists: $("treat-dl").checked,
-      maxRecipients: $("max-recipients").value
+      maxRecipients: $("max-recipients").value,
+      diagnostic: $("diagnostic").checked
     });
   }
 
@@ -116,6 +118,6 @@
       showLog();
     };
     showLog();
-    $("version").textContent = "Respice for Outlook 1.0.1";
+    $("version").textContent = "Respice for Outlook 1.0.2";
   });
 })();

@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Respice for Outlook</title>
-  <link rel="stylesheet" href="taskpane.css?v=1.0.1">
+  <link rel="stylesheet" href="taskpane.css?v=1.0.2">
   <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <script>var RESPICE_SKIP_ASSOCIATE = true;</script>
-  <script type="text/javascript" src="launchevent.js?v=1.0.1"></script>
-  <script type="text/javascript" src="taskpane.js?v=1.0.1"></script>
+  <script type="text/javascript" src="launchevent.js?v=1.0.2"></script>
+  <script type="text/javascript" src="taskpane.js?v=1.0.2"></script>
 </head>
 <body>
   <main>
@@ -55,6 +55,11 @@
       <p class="hint">Runs the saved rules against the message you are composing. Nothing is sent.</p>
       <button id="test">Check now</button>
       <pre id="test-result"></pre>
+    </section>
+
+    <section>
+      <h2>Troubleshooting</h2>
+      <label class="check"><input type="checkbox" id="diagnostic"> Diagnostic mode: every Send shows a dialog with what the add-in did. Use <b>Send Anyway</b> to send. Remember to Save.</label>
     </section>
 
     <section>

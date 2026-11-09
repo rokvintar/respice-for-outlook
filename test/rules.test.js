@@ -116,3 +116,68 @@ test("handler fails open and blocks only on findings", async () => {
   assert.deepEqual(await run(broken, null), { allowEvent: true });
   delete global.Office;
 });
+
+// --- Stall protection (v1.0.2) ---
+function mockOffice(item, stored) {
+  global.Office = {
+    AsyncResultStatus: { Succeeded: "succeeded" },
+    context: { roamingSettings: { get: () => stored }, mailbox: { userProfile: { emailAddress: me }, item } }
+  };
+}
+const ok = (v) => ({ getAsync: (cb) => cb({ status: "succeeded", value: v }) });
+const never = { getAsync: () => {} }; // Outlook never calls back
+const composeNew = (cb) => cb({ status: "succeeded", value: { composeType: "newMail" } });
+
+test("an Outlook call that never answers is timed out and the rest still evaluated", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  mockOffice({ to: ok([rcp("x@customer.com")]), cc: never, bcc: ok([]), getComposeTypeAsync: composeNew }, null);
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.equal(res.allowEvent, false);
+  assert.match(res.errorMessage, /External recipient/);
+  delete global.Office;
+});
+
+test("watchdog completes the event if the handler gets stuck", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 10000;
+  r.RESPICE_CONFIG.watchdogMs = 50;
+  mockOffice({ to: never, cc: never, bcc: never, getComposeTypeAsync: () => {} }, null);
+  const t0 = Date.now();
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.deepEqual(res, { allowEvent: true });
+  assert.ok(Date.now() - t0 < 1000);
+  delete global.Office;
+});
+
+test("if event.completed throws, it is retried with the simplest options", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  mockOffice({ to: ok([rcp("x@customer.com")]), cc: ok([]), bcc: ok([]), getComposeTypeAsync: composeNew }, null);
+  const calls = [];
+  await new Promise((resolve) =>
+    r.onMessageSendHandler({
+      completed: (o) => {
+        calls.push(o);
+        if (calls.length === 1) throw new Error("unsupported option");
+        resolve();
+      }
+    })
+  );
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1], { allowEvent: true });
+  delete global.Office;
+});
+
+test("diagnostic mode always shows a dialog listing the steps", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  mockOffice({ to: ok([rcp("a@example.com")]), cc: never, bcc: ok([]), getComposeTypeAsync: composeNew }, { diagnostic: true });
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.equal(res.allowEvent, false);
+  assert.match(res.errorMessage, /Respice diagnostics/);
+  assert.match(res.errorMessage, /cc TIMEOUT/);
+  assert.match(res.errorMessage, /to ok/);
+  assert.match(res.errorMessage, /Result: no warnings/);
+  assert.ok(res.errorMessage.length <= 490);
+  delete global.Office;
+});
