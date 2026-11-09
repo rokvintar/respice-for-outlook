@@ -397,6 +397,14 @@ if (
   typeof RESPICE_SKIP_ASSOCIATE === "undefined"
 ) {
   respiceTrace("runtime-loaded");
+  // Browser runtime (web, Mac, new Outlook on Windows): the page must call Office.onReady(),
+  // otherwise Office.js never finishes its handshake and Outlook never delivers the event.
+  // Classic Outlook on Windows ignores this.
+  if (typeof Office.onReady === "function") {
+    Office.onReady(function () {
+      respiceTrace("office-ready");
+    });
+  }
   Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
 }
 

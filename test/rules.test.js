@@ -181,3 +181,31 @@ test("diagnostic mode always shows a dialog listing the steps", async () => {
   assert.ok(res.errorMessage.length <= 490);
   delete global.Office;
 });
+
+// --- Runtime bootstrap (v1.0.3) ---
+const vm = require("node:vm");
+const fs = require("node:fs");
+const path = require("node:path");
+const SRC = fs.readFileSync(path.join(__dirname, "../src/launchevent.js"), "utf8");
+
+function loadLikeOutlook(extraGlobals) {
+  const calls = { onReady: 0, associate: [] };
+  const Office = {
+    onReady: (cb) => { calls.onReady++; if (cb) cb({}); return Promise.resolve({}); },
+    actions: { associate: (name, fn) => calls.associate.push([name, typeof fn]) }
+  };
+  vm.runInNewContext(SRC, Object.assign({ Office, setTimeout, clearTimeout, Promise }, extraGlobals));
+  return calls;
+}
+
+test("event runtime page calls Office.onReady and registers the handler", () => {
+  const calls = loadLikeOutlook({});
+  assert.equal(calls.onReady, 1);
+  assert.deepEqual(calls.associate, [["onMessageSendHandler", "function"]]);
+});
+
+test("task pane context neither registers the handler nor calls onReady from launchevent.js", () => {
+  const calls = loadLikeOutlook({ RESPICE_SKIP_ASSOCIATE: true });
+  assert.equal(calls.onReady, 0);
+  assert.deepEqual(calls.associate, []);
+});
