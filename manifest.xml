@@ -6,7 +6,7 @@
   xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
   xsi:type="MailApp">
   <Id>247814bb-cadc-420c-81a7-e9516e56fecf</Id>
-  <Version>1.0.0.0</Version>
+  <Version>1.1.0.0</Version>
   <ProviderName>Respice for Outlook</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Respice for Outlook"/>
@@ -104,6 +104,9 @@
               <LaunchEvents>
                 <!-- PromptUser: the dialog always offers "Send Anyway"; if the add-in fails to load, mail is not blocked. -->
                 <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" SendMode="PromptUser"/>
+                <!-- Live warning bar while composing (Mailbox 1.10 / 1.11). -->
+                <LaunchEvent Type="OnNewMessageCompose" FunctionName="onComposeChangedHandler"/>
+                <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onComposeChangedHandler"/>
               </LaunchEvents>
               <SourceLocation resid="WebViewRuntime.Url"/>
             </ExtensionPoint>

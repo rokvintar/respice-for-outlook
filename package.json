@@ -1,6 +1,6 @@
 {
   "name": "respice-for-outlook",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Outlook add-in that warns before sending to external recipients, mailing lists, too many recipients, or replying to more than the sender.",
   "private": true,
   "license": "MIT",

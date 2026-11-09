@@ -457,6 +457,98 @@ function onMessageSendHandler(event) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Live warning bar while composing (OnNewMessageCompose + OnMessageRecipientsChanged)
+// ---------------------------------------------------------------------------
+
+var RESPICE_BAR_KEY = "respiceWarning"; // notification key, max 32 chars
+var RESPICE_BAR_MAX = 150;              // notification text limit
+
+var RESPICE_BAR_LABELS = {
+  external: "External",
+  mailingList: "List",
+  tooMany: "Recipients",
+  replyAll: "Reply to"
+};
+
+function respiceFormatBar(findings) {
+  var parts = findings.map(function (f) {
+    if (f.rule === "tooMany") return f.detail;
+    if (f.rule === "replyAll") return "Reply to more than the sender";
+    return RESPICE_BAR_LABELS[f.rule] + ": " + respiceSummarizeItems(f.items, 1);
+  });
+  var text = "Respice: " + parts.join(" · ");
+  if (text.length > RESPICE_BAR_MAX) text = text.slice(0, RESPICE_BAR_MAX - 1) + "…";
+  return text;
+}
+
+function respiceBarDetails(text) {
+  var type = "informationalMessage";
+  if (Office.MailboxEnums && Office.MailboxEnums.ItemNotificationMessageType) {
+    type = Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage;
+  }
+  return { type: type, message: text, icon: "Icon.16x16", persistent: false };
+}
+
+// Shows, updates or removes the single Respice bar. Never rejects.
+function respiceUpdateBar(item, findings) {
+  return new Promise(function (resolve) {
+    var nm = item && item.notificationMessages;
+    if (!nm) return resolve("no notification API");
+    if (!findings.length) {
+      nm.removeAsync(RESPICE_BAR_KEY, function () {
+        resolve("removed");
+      });
+      return;
+    }
+    var details = respiceBarDetails(respiceFormatBar(findings));
+    nm.replaceAsync(RESPICE_BAR_KEY, details, function (res) {
+      if (res && res.status === Office.AsyncResultStatus.Succeeded) return resolve("shown");
+      nm.addAsync(RESPICE_BAR_KEY, details, function () {
+        resolve("added");
+      });
+    });
+  });
+}
+
+function onComposeChangedHandler(event) {
+  var t0 = Date.now();
+  var diag = [];
+  var done = false;
+
+  function finish(result) {
+    if (done) return;
+    done = true;
+    clearTimeout(watchdog);
+    respiceTrace("bar", { result: result, ms: Date.now() - t0, steps: diag });
+    try {
+      event.completed();
+    } catch (e) {}
+  }
+
+  var watchdog = setTimeout(function () {
+    diag.push("WATCHDOG fired");
+    finish("watchdog");
+  }, RESPICE_CONFIG.watchdogMs);
+
+  try {
+    var item = Office.context.mailbox.item;
+    var settings = respiceLoadSettings();
+    respiceGatherInput(item, diag)
+      .then(function (input) {
+        var findings = respiceEvaluate(input, settings);
+        return respiceTimed("bar", function () { return respiceUpdateBar(item, findings); }, "timeout", diag);
+      })
+      .then(finish, function (e) {
+        diag.push("ERROR " + (e && e.message));
+        finish("error");
+      });
+  } catch (e) {
+    diag.push("ERROR " + (e && e.message));
+    finish("error");
+  }
+}
+
 if (
   typeof Office !== "undefined" &&
   Office.actions &&
@@ -473,6 +565,7 @@ if (
     });
   }
   Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
+  Office.actions.associate("onComposeChangedHandler", onComposeChangedHandler);
 }
 
 if (typeof module !== "undefined" && module.exports) {
@@ -487,6 +580,8 @@ if (typeof module !== "undefined" && module.exports) {
     respiceIsReplySubject: respiceIsReplySubject,
     respiceIsForwardSubject: respiceIsForwardSubject,
     RESPICE_CONFIG: RESPICE_CONFIG,
-    onMessageSendHandler: onMessageSendHandler
+    respiceFormatBar: respiceFormatBar,
+    onMessageSendHandler: onMessageSendHandler,
+    onComposeChangedHandler: onComposeChangedHandler
   };
 }

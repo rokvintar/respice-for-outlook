@@ -197,7 +197,7 @@ function loadLikeOutlook(extraGlobals) {
 test("event runtime page calls Office.onReady and registers the handler", () => {
   const calls = loadLikeOutlook({});
   assert.equal(calls.onReady, 1);
-  assert.deepEqual(calls.associate, [["onMessageSendHandler", "function"]]);
+  assert.deepEqual(calls.associate, [["onMessageSendHandler", "function"], ["onComposeChangedHandler", "function"]]);
 });
 
 test("task pane context neither registers the handler nor calls onReady from launchevent.js", () => {
@@ -276,4 +276,85 @@ test("inReplyTo getter that throws is treated as empty", async () => {
   const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
   assert.deepEqual(res, { allowEvent: true });
   delete global.Office;
+});
+
+// --- Live warning bar (v1.1.0) ---
+function barItem(recipients, extra) {
+  const calls = [];
+  const nm = {
+    replaceAsync: (k, d, cb) => { calls.push(["replace", k, d]); cb({ status: (extra && extra.replaceStatus) || "succeeded" }); },
+    addAsync: (k, d, cb) => { calls.push(["add", k, d]); cb({ status: "succeeded" }); },
+    removeAsync: (k, cb) => { calls.push(["remove", k]); cb({ status: "succeeded" }); }
+  };
+  const item = Object.assign(
+    { to: ok(recipients), cc: ok([]), bcc: ok([]), subject: ok("Hello"), getComposeTypeAsync: composeNew, notificationMessages: nm },
+    (extra && extra.item) || {}
+  );
+  return { item, calls };
+}
+
+test("bar is shown with all findings when recipients are risky", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  const { item, calls } = barItem([rcp("x@customer.com"), rcp("all@example.com")]);
+  mockOffice(item, { listPatterns: ["all@example.com"] });
+  await new Promise((resolve) => r.onComposeChangedHandler({ completed: resolve }));
+  assert.equal(calls.length, 1);
+  const [op, key, d] = calls[0];
+  assert.equal(op, "replace");
+  assert.equal(key, "respiceWarning");
+  assert.equal(d.type, "informationalMessage");
+  assert.equal(d.icon, "Icon.16x16");
+  assert.match(d.message, /^Respice: External: x@customer\.com · List: all@example\.com$/);
+  delete global.Office;
+});
+
+test("bar is removed when nothing is risky", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  const { item, calls } = barItem([rcp("a@example.com")]);
+  mockOffice(item, null);
+  await new Promise((resolve) => r.onComposeChangedHandler({ completed: resolve }));
+  assert.deepEqual(calls, [["remove", "respiceWarning"]]);
+  delete global.Office;
+});
+
+test("bar falls back to addAsync when replace fails", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  const { item, calls } = barItem([rcp("x@customer.com")], { replaceStatus: "failed" });
+  mockOffice(item, null);
+  await new Promise((resolve) => r.onComposeChangedHandler({ completed: resolve }));
+  assert.deepEqual(calls.map((c) => c[0]), ["replace", "add"]);
+  delete global.Office;
+});
+
+test("bar handler always completes, even if the notification API never answers", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  const item = { to: ok([rcp("x@customer.com")]), cc: ok([]), bcc: ok([]), getComposeTypeAsync: composeNew,
+    notificationMessages: { replaceAsync: () => {}, addAsync: () => {}, removeAsync: () => {} } };
+  mockOffice(item, null);
+  const t0 = Date.now();
+  await new Promise((resolve) => r.onComposeChangedHandler({ completed: resolve }));
+  assert.ok(Date.now() - t0 < 500);
+  delete global.Office;
+});
+
+test("bar handler completes when the item has no notification API", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  mockOffice({ to: ok([rcp("x@customer.com")]), cc: ok([]), bcc: ok([]), getComposeTypeAsync: composeNew }, null);
+  await new Promise((resolve) => r.onComposeChangedHandler({ completed: resolve }));
+  delete global.Office;
+});
+
+test("bar text stays within 150 characters and covers reply-all and count", () => {
+  const many = Array.from({ length: 30 }, (_, i) => rcp(`someone.with.long.name${i}@customer-number-${i}.com`));
+  const f = r.respiceEvaluate({ to: many, composeType: "reply", userEmail: me }, { listPatterns: ["*@customer-number-1.com"] });
+  const text = r.respiceFormatBar(f);
+  assert.ok(text.length <= 150, String(text.length));
+  assert.match(text, /^Respice: External: .+ \+29/);
+  const g = r.respiceEvaluate({ to: [rcp("a@example.com"), rcp("b@example.com")], composeType: "reply", userEmail: me }, {});
+  assert.equal(r.respiceFormatBar(g), "Respice: Reply to more than the sender");
 });
