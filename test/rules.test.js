@@ -209,3 +209,32 @@ test("task pane context neither registers the handler nor calls onReady from lau
   assert.equal(calls.onReady, 0);
   assert.deepEqual(calls.associate, []);
 });
+
+// --- Reply detection by subject (v1.0.4) ---
+test("reply prefixes are recognised, forwards and plain subjects are not", () => {
+  for (const s of ["RE: Budget", "Re: x", "re:x", "AW: Termin", "SV: hej", "Odg: ponudba", "ODG: x", "VS: x", "RIF: x", "Antw: x", "RE[2]: x", "RE: RE: x", "[External] RE: x", "答复: 会议", "回复：x"])
+    assert.ok(r.respiceIsReplySubject(s), s);
+  for (const s of ["FW: x", "Fwd: x", "Regarding budget", "Request: access", "Rev 2: spec", "", null])
+    assert.ok(!r.respiceIsReplySubject(s), String(s));
+});
+
+test("reply detected by subject when Outlook reports newMail at send time", () => {
+  const two = { to: [rcp("a@example.com"), rcp("b@example.com")], userEmail: me };
+  assert.deepEqual(rules(r.respiceEvaluate({ ...two, composeType: "newMail", subject: "RE: plan" }, {})), ["replyAll"]);
+  assert.deepEqual(r.respiceEvaluate({ ...two, composeType: "newMail", subject: "plan" }, {}), []);
+  assert.deepEqual(r.respiceEvaluate({ ...two, composeType: "forward", subject: "RE: plan" }, {}), []);
+  assert.deepEqual(r.respiceEvaluate({ to: [rcp("a@example.com")], composeType: "newMail", subject: "RE: plan", userEmail: me }, {}), []);
+});
+
+test("send handler reads the subject and warns on a reply-all reported as newMail", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  mockOffice({
+    to: ok([rcp("a@example.com"), rcp("b@example.com")]), cc: ok([]), bcc: ok([]),
+    subject: ok("RE: weekly sync"), getComposeTypeAsync: composeNew
+  }, null);
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.equal(res.allowEvent, false);
+  assert.match(res.errorMessage, /Reply to more than the sender/);
+  delete global.Office;
+});

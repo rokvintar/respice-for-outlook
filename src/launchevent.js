@@ -172,7 +172,7 @@ function respiceEvaluate(input, settings) {
     });
   }
 
-  if (s.rules.replyAll && input.composeType === "reply" && recipients.length > 1) {
+  if (s.rules.replyAll && respiceIsReply(input) && recipients.length > 1) {
     findings.push({
       rule: "replyAll",
       label: RESPICE_LABELS.replyAll,
@@ -182,6 +182,20 @@ function respiceEvaluate(input, settings) {
   }
 
   return findings;
+}
+
+// Outlook's compose type is unreliable at send time (Mac/web report "newMail" for replies),
+// so a reply is also recognised by its subject prefix. Forwards are never treated as replies.
+var RESPICE_REPLY_PREFIX = /^\s*(\[[^\]]*\]\s*)*(re|aw|sv|odg|vs|rif|antw|r|答复|回复)\s*(\[\d+\])?\s*[:：]/i;
+
+function respiceIsReplySubject(subject) {
+  return typeof subject === "string" && RESPICE_REPLY_PREFIX.test(subject);
+}
+
+function respiceIsReply(input) {
+  if (input.composeType === "reply") return true;
+  if (input.composeType === "forward") return false;
+  return respiceIsReplySubject(input.subject);
 }
 
 function respiceShowName(r) {
@@ -278,6 +292,16 @@ function respiceTimed(label, makePromise, fallback, diag) {
   });
 }
 
+function respiceGetSubject(item) {
+  return new Promise(function (resolve) {
+    var f = item && item.subject;
+    if (!f || typeof f.getAsync !== "function") return resolve("");
+    f.getAsync(function (res) {
+      resolve(res.status === Office.AsyncResultStatus.Succeeded && typeof res.value === "string" ? res.value : "");
+    });
+  });
+}
+
 function respiceGatherInput(item, diag) {
   diag = diag || [];
   var noType = { type: null, raw: "unavailable" };
@@ -285,13 +309,14 @@ function respiceGatherInput(item, diag) {
     respiceTimed("to", function () { return respiceGetAsync(item.to); }, [], diag),
     respiceTimed("cc", function () { return respiceGetAsync(item.cc); }, [], diag),
     respiceTimed("bcc", function () { return respiceGetAsync(item.bcc); }, [], diag),
-    respiceTimed("composeType", function () { return respiceGetComposeType(item); }, noType, diag)
+    respiceTimed("composeType", function () { return respiceGetComposeType(item); }, noType, diag),
+    respiceTimed("subject", function () { return respiceGetSubject(item); }, "", diag)
   ]).then(function (v) {
     var userEmail = "";
     try {
       userEmail = Office.context.mailbox.userProfile.emailAddress || "";
     } catch (e) {}
-    return { to: v[0], cc: v[1], bcc: v[2], composeType: v[3].type, composeTypeRaw: v[3].raw, userEmail: userEmail };
+    return { to: v[0], cc: v[1], bcc: v[2], composeType: v[3].type, composeTypeRaw: v[3].raw, subject: v[4], userEmail: userEmail };
   });
 }
 
@@ -312,6 +337,7 @@ function respiceTrace(stage, data) {
 function respiceDescribeInput(input) {
   return {
     composeType: input.composeTypeRaw,
+    replyBySubject: respiceIsReplySubject(input.subject),
     to: (input.to || []).length,
     cc: (input.cc || []).length,
     bcc: (input.bcc || []).length,
@@ -365,7 +391,7 @@ function onMessageSendHandler(event) {
     respiceGatherInput(Office.context.mailbox.item, diag)
       .then(function (input) {
         var d = respiceDescribeInput(input);
-        diag.push("composeType " + d.composeType + "; to/cc/bcc " + d.to + "/" + d.cc + "/" + d.bcc);
+        diag.push("composeType " + d.composeType + "; replyBySubject " + d.replyBySubject + "; to/cc/bcc " + d.to + "/" + d.cc + "/" + d.bcc);
         respiceTrace("gathered", d);
         var findings = respiceEvaluate(input, settings);
         if (!findings.length) return finish({ allowEvent: true }, "no warnings");
@@ -417,6 +443,7 @@ if (typeof module !== "undefined" && module.exports) {
     respiceMatchesList: respiceMatchesList,
     respiceEvaluate: respiceEvaluate,
     respiceFormatMessage: respiceFormatMessage,
+    respiceIsReplySubject: respiceIsReplySubject,
     RESPICE_CONFIG: RESPICE_CONFIG,
     onMessageSendHandler: onMessageSendHandler
   };

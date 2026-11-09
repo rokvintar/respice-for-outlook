@@ -9,7 +9,7 @@ When you press **Send**, it checks To, Cc and Bcc. If any enabled rule fires, Ou
 | 1 | External recipient | any recipient is outside your internal domains | on/off, internal domains (default: your own address's domain, subdomains included) |
 | 2 | Mailing list | any recipient matches a list pattern, or Outlook marks it as a distribution list | on/off, list addresses with `*` / `?` wildcards, DL auto-detection on/off |
 | 3 | Too many recipients | unique To + Cc + Bcc recipients exceed X | on/off, X (default 15) |
-| 4 | Reply to more than the sender | the message is a reply and has more than one recipient | on/off |
+| 4 | Reply to more than the sender | the message is a reply (compose type or `RE:`-style subject) and has more than one recipient | on/off |
 
 Example dialog:
 
@@ -80,7 +80,7 @@ While composing, **Check now** runs the rules against the current draft without 
 
 ## Limitations
 
-- **Reply vs. Reply all:** Outlook's add-in API only reports `newMail` / `reply` / `forward`. Rule 4 therefore fires on any reply with more than one recipient, including a plain reply where you added people yourself.
+- **Reply vs. Reply all:** Outlook's add-in API only reports `newMail` / `reply` / `forward`, and at send time Outlook on Mac and on the web report `newMail` even for replies. Rule 4 therefore treats a message as a reply when Outlook says `reply` **or** the subject starts with a reply prefix (`RE:`, `AW:`, `SV:`, `Odg:`, `VS:`, `RIF:`, `Antw:`, `答复:` …), and fires when it has more than one recipient. A plain reply where you added people yourself also triggers it; a reply whose `RE:` you deleted does not.
 - **Distribution lists aren't expanded.** A list counts as one recipient for rule 3, and external members hidden inside a list aren't detected by rule 1.
 - **Fail-open:** if the add-in can't load (offline, GitHub Pages down), Outlook lets the mail go (`SendMode="PromptUser"`).
 - The dialog text is capped at about 500 characters. Long address lists are shortened to "+N more".
