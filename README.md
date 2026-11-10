@@ -5,14 +5,26 @@
 ## 📥 Install
 
 1. Download [manifest.xml](https://rokvintar.github.io/respice-for-outlook/manifest.xml).
-2. Go to [aka.ms/olksideload](https://aka.ms/olksideload) → **My add-ins** → **Add a custom add-in** → **Add from File** → select the file.
+2. Go to [aka.ms/olksideload](https://aka.ms/olksideload) → **My add-ins** → **Add a custom add-in** → **Add from File** → select the file.  
+   *No "Add a custom add-in" option? Your IT blocks user add-ins. Ask them to deploy the manifest.*
 3. Restart Outlook.
 
-**Settings:** open any message → **Apps** → **Respice settings**.
-
-**No "Add a custom add-in" option?** Your IT blocks user add-ins. Ask them to deploy the manifest.
-
 **Updates** install automatically. If a release says *new manifest*, remove the add-in and repeat the steps.
+
+## 🛠️ Setup
+
+1. Open **Respice settings**. Select or open any message (or start a draft), then:
+   - **Mac (new Outlook), Web, Windows (new Outlook):** in the message toolbar click **Apps** (grid icon) → **Respice for Outlook** → **Respice settings**. If **Apps** isn't visible, it's under **⋯** (More).
+   - **Windows (classic Outlook):** ribbon **Home** tab (reading) or **Message** tab (writing) → **Respice** group → **Respice settings**.
+   - **iOS / Android:** no settings on mobile; set them on desktop, they sync through your mailbox.
+2. For each of the 4 rules, add or change its configuration and select a **Mode** (see *Modes* under *How it works*):
+   - **External recipient** – *Internal domains*, one per line (subdomains included). Leave empty to use your own email domain.
+   - **Mailing list** – *List addresses*, one per line; `*` and `?` wildcards, `#` for comments. Keep *Also treat anything Outlook marks as a distribution list* ticked to catch lists you haven't entered.
+   - **Too many recipients** – the limit (default 15).
+   - **Reply to more than the sender** – nothing to configure.
+3. Click **Save**. Settings are stored in your mailbox and apply in every Outlook you use.
+
+*Tip:* in a draft, **Check now** shows what Respice would warn about, without sending.
 
 ## 🔒 Privacy
 
