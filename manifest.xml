@@ -6,7 +6,7 @@
   xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
   xsi:type="MailApp">
   <Id>247814bb-cadc-420c-81a7-e9516e56fecf</Id>
-  <Version>1.1.0.0</Version>
+  <Version>1.3.0.0</Version>
   <ProviderName>Respice for Outlook</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Respice for Outlook"/>
@@ -40,8 +40,10 @@
   <DisableEntityHighlighting>false</DisableEntityHighlighting>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      <!-- 1.5 so Outlook mobile (which reports Mailbox 1.5) loads the add-in. Desktop clients still need
+           1.10/1.11/1.12 for the compose, recipients and send events and ignore events they don't support. -->
       <Requirements>
-        <bt:Sets DefaultMinVersion="1.12">
+        <bt:Sets DefaultMinVersion="1.5">
           <bt:Set Name="Mailbox"/>
         </bt:Sets>
       </Requirements>
@@ -111,6 +113,16 @@
               <SourceLocation resid="WebViewRuntime.Url"/>
             </ExtensionPoint>
           </DesktopFormFactor>
+          <!-- Outlook on iOS / Android: only the warning bar. Mobile has no Smart Alerts (no check at Send). -->
+          <MobileFormFactor>
+            <ExtensionPoint xsi:type="LaunchEvent">
+              <LaunchEvents>
+                <LaunchEvent Type="OnNewMessageCompose" FunctionName="onComposeChangedHandler"/>
+                <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onComposeChangedHandler"/>
+              </LaunchEvents>
+              <SourceLocation resid="WebViewRuntime.Url"/>
+            </ExtensionPoint>
+          </MobileFormFactor>
         </Host>
       </Hosts>
       <Resources>

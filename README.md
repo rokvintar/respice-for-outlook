@@ -40,48 +40,33 @@ Outlook clients that support Smart Alerts (Mailbox requirement set 1.12+):
 - New Outlook for Windows
 - Classic Outlook for Windows (Microsoft 365)
 
-Not supported: legacy Outlook for Mac, Outlook mobile.
+**Outlook on iOS and Android** (version 4.2425 or newer): the warning bar only. Outlook mobile has no Smart Alerts, so there is no check at Send, and it shows at most one bar per message. Settings are edited on desktop and sync through the mailbox.
 
-## Install (for yourself)
+Not supported: legacy Outlook for Mac.
 
-### 1. Host it on GitHub Pages
+## Install (2 minutes)
 
-```bash
-git init && git add . && git commit -m "Respice for Outlook 1.0.0"
-git branch -M main
-git remote add origin https://github.com/rokvintar/respice-for-outlook.git
-git push -u origin main
-```
+You only need one file, the manifest. The add-in's code is served from GitHub Pages.
 
-On GitHub: **Settings → Pages → Build and deployment → Deploy from a branch → `main` / root**.
-Wait until `https://rokvintar.github.io/respice-for-outlook/` loads. On a free GitHub plan the repo must be public.
+1. **Download the manifest:** <https://rokvintar.github.io/respice-for-outlook/manifest.xml> (right-click → *Save Link As…*, keep the name `manifest.xml`).
+2. **Add it to Outlook:** open <https://aka.ms/olksideload> → **My add-ins** → **Custom Addins** → **Add a custom add-in** → **Add from File…** → pick `manifest.xml` → confirm.
+3. **Restart Outlook.** The add-in is attached to your mailbox, so it appears in Outlook for Mac, Windows, web and mobile.
 
-### 2. Point the manifest at your Pages URL
+Then open any message → **Apps** (or the ribbon) → **Respice settings** to add your mailing-list addresses and choose each rule's mode.
 
-```bash
-node scripts/build-manifest.mjs https://rokvintar.github.io/respice-for-outlook
-git commit -am "Manifest for GitHub Pages" && git push
-```
+If **Custom Addins** is missing, your organisation has disabled user-installed add-ins. Ask IT to deploy the manifest through the Microsoft 365 admin center (**Settings → Integrated apps → Upload custom apps**), which also installs it for a whole team.
 
-### 3. Validate (optional, needs internet)
+**Updating:** code changes reach you automatically after an Outlook restart. Only when the manifest version changes (see the release notes) do you need to remove the add-in and add the new `manifest.xml` again; copy your list addresses first.
 
-```bash
-npm run validate
-```
+## Host your own copy (developers)
 
-### 4. Sideload into Outlook
-
-1. Open <https://aka.ms/olksideload> in a browser. This opens Outlook on the web with the add-in dialog.
-2. **My add-ins → Custom Addins → Add a custom add-in → Add from File…** and select `manifest.xml`.
-3. The add-in is attached to your mailbox and appears in Outlook for Mac, Windows and web within a few minutes. Restart Outlook if it doesn't.
-
-If the "Custom Addins" option is missing, your organisation has disabled user-installed add-ins. Ask IT to deploy `manifest.xml` through the Microsoft 365 admin center (Integrated Apps).
-
-### 5. Configure
-
-Open any message (or a draft) → ribbon / **Apps** menu → **Respice settings**.
-Fill in your mailing-list addresses, adjust X, toggle rules, then **Save**.
-While composing, **Check now** runs the rules against the current draft without sending.
+1. Fork the repo and enable **Settings → Pages → Deploy from a branch → `main` / root** (a free GitHub plan needs a public repo).
+2. Point the manifest at your Pages URL and commit it:
+   ```bash
+   node scripts/build-manifest.mjs https://<you>.github.io/respice-for-outlook
+   ```
+3. Optional: `npm run validate` (Microsoft's online manifest validator).
+4. Install your `manifest.xml` as above.
 
 ## Limitations
 
