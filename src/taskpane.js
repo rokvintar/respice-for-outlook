@@ -19,11 +19,20 @@
     }
   }
 
+  // UI id suffix -> settings key
+  var RULE_IDS = { external: "external", list: "mailingList", toomany: "tooMany", replyall: "replyAll" };
+
+  function modeOf(s, key) {
+    if (!s.rules[key]) return "off";
+    if (s.atSend[key] && s.inBar[key]) return "send";
+    if (s.atSend[key]) return "sendonly";
+    return "bar";
+  }
+
   function fill(s) {
-    $("rule-external").checked = s.rules.external;
-    $("rule-list").checked = s.rules.mailingList;
-    $("rule-toomany").checked = s.rules.tooMany;
-    $("rule-replyall").checked = s.rules.replyAll;
+    Object.keys(RULE_IDS).forEach(function (id) {
+      $("mode-" + id).value = modeOf(s, RULE_IDS[id]);
+    });
     $("internal-domains").value = s.internalDomains.join("\n");
     $("list-patterns").value = s.listPatterns.join("\n");
     $("treat-dl").checked = s.treatOutlookDistributionListsAsLists;
@@ -34,13 +43,21 @@
   }
 
   function read() {
+    // mode -> [rule on, check at Send, show in bar]; "off" keeps the defaults for when it's re-enabled
+    var MODES = { send: [true, true, true], bar: [true, false, true], sendonly: [true, true, false], off: [false, true, true] };
+    var rules = {};
+    var atSend = {};
+    var inBar = {};
+    Object.keys(RULE_IDS).forEach(function (id) {
+      var m = MODES[$("mode-" + id).value] || MODES.send;
+      rules[RULE_IDS[id]] = m[0];
+      atSend[RULE_IDS[id]] = m[1];
+      inBar[RULE_IDS[id]] = m[2];
+    });
     return respiceNormalizeSettings({
-      rules: {
-        external: $("rule-external").checked,
-        mailingList: $("rule-list").checked,
-        tooMany: $("rule-toomany").checked,
-        replyAll: $("rule-replyall").checked
-      },
+      rules: rules,
+      atSend: atSend,
+      inBar: inBar,
       internalDomains: $("internal-domains").value,
       listPatterns: $("list-patterns").value,
       treatOutlookDistributionListsAsLists: $("treat-dl").checked,
@@ -123,6 +140,6 @@
       showLog();
     };
     showLog();
-    $("version").textContent = "Respice for Outlook 1.1.1";
+    $("version").textContent = "Respice for Outlook 1.2.0";
   });
 })();

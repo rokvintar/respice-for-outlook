@@ -21,6 +21,20 @@ var RESPICE_DEFAULTS = {
     tooMany: true,      // 3. more than maxRecipients recipients
     replyAll: true      // 4. a reply that goes to more than one recipient
   },
+  // Per rule: also stop at Send with a dialog (true) or show only the warning bar while composing (false).
+  atSend: {
+    external: true,
+    mailingList: true,
+    tooMany: true,
+    replyAll: true
+  },
+  // Per rule: show the warning bar while composing (true) or only check at Send (false).
+  inBar: {
+    external: true,
+    mailingList: true,
+    tooMany: true,
+    replyAll: true
+  },
   internalDomains: [],  // empty = use the domain of the signed-in user's own address
   listPatterns: [],     // e.g. "all@example.com", "*-all@example.com", "dl-*@example.com"
   treatOutlookDistributionListsAsLists: true,
@@ -71,6 +85,8 @@ function respiceNormalizeSettings(raw) {
   var d = RESPICE_DEFAULTS;
   var s = respiceObject(raw);
   var rules = respiceObject(s.rules);
+  var atSend = respiceObject(s.atSend);
+  var inBar = respiceObject(s.inBar);
   var max = parseInt(s.maxRecipients, 10);
   if (!(isFinite(max) && max >= 1)) max = d.maxRecipients;
   return {
@@ -80,6 +96,18 @@ function respiceNormalizeSettings(raw) {
       mailingList: respiceBool(rules.mailingList, d.rules.mailingList),
       tooMany: respiceBool(rules.tooMany, d.rules.tooMany),
       replyAll: respiceBool(rules.replyAll, d.rules.replyAll)
+    },
+    atSend: {
+      external: respiceBool(atSend.external, d.atSend.external),
+      mailingList: respiceBool(atSend.mailingList, d.atSend.mailingList),
+      tooMany: respiceBool(atSend.tooMany, d.atSend.tooMany),
+      replyAll: respiceBool(atSend.replyAll, d.atSend.replyAll)
+    },
+    inBar: {
+      external: respiceBool(inBar.external, d.inBar.external),
+      mailingList: respiceBool(inBar.mailingList, d.inBar.mailingList),
+      tooMany: respiceBool(inBar.tooMany, d.inBar.tooMany),
+      replyAll: respiceBool(inBar.replyAll, d.inBar.replyAll)
     },
     internalDomains: respiceParseLines(s.internalDomains || []).map(function (x) {
       return x.replace(/^.*@/, "").replace(/^\*?\./, "");
@@ -159,7 +187,7 @@ function respiceEvaluate(input, settings) {
         rule: "external",
         label: RESPICE_LABELS.external,
         items: ext.map(respiceShowName),
-        detail: "outside " + internal.join(", ")
+        detail: ""
       });
     }
   }
@@ -178,7 +206,9 @@ function respiceEvaluate(input, settings) {
       rule: "tooMany",
       label: RESPICE_LABELS.tooMany,
       items: [],
-      detail: recipients.length + " recipients (limit " + s.maxRecipients + ")"
+      count: recipients.length,
+      limit: s.maxRecipients,
+      detail: recipients.length + " (limit " + s.maxRecipients + ")"
     });
   }
 
@@ -187,11 +217,38 @@ function respiceEvaluate(input, settings) {
       rule: "replyAll",
       label: RESPICE_LABELS.replyAll,
       items: [],
-      detail: "this reply goes to " + recipients.length + " recipients. Did you mean Reply all?"
+      count: recipients.length,
+      detail: "goes to " + recipients.length + " people"
     });
   }
 
   return findings;
+}
+
+// True if at least one rule is on and set to stop at Send.
+function respiceAnySendRule(settings) {
+  var s = respiceNormalizeSettings(settings);
+  var keys = ["external", "mailingList", "tooMany", "replyAll"];
+  for (var i = 0; i < keys.length; i++) {
+    if (s.rules[keys[i]] && s.atSend[keys[i]]) return true;
+  }
+  return false;
+}
+
+// Keeps only the findings whose rule is set to stop at Send.
+function respiceFilterForSend(findings, settings) {
+  var s = respiceNormalizeSettings(settings);
+  return findings.filter(function (f) {
+    return s.atSend[f.rule];
+  });
+}
+
+// Keeps only the findings whose rule is set to show in the warning bar.
+function respiceFilterForBar(findings, settings) {
+  var s = respiceNormalizeSettings(settings);
+  return findings.filter(function (f) {
+    return s.inBar[f.rule];
+  });
 }
 
 // Outlook's compose type is unreliable at send time (Mac/web report "newMail" for replies),
@@ -239,15 +296,26 @@ function respiceSummarizeItems(items, max) {
 }
 
 // Smart Alerts truncates long dialog text, so keep it compact.
+// Short labels shared by the Send dialog and the warning bar.
+var RESPICE_SHORT_LABELS = {
+  external: "External",
+  mailingList: "List",
+  tooMany: "Recipients",
+  replyAll: "Reply all"
+};
+
 function respiceFormatMessage(findings, markdown) {
   var lines = findings.map(function (f) {
-    var what = respiceSummarizeItems(f.items, 3);
-    var parts = [what, f.detail].filter(Boolean).join(" · ");
-    if (markdown) return "- **" + f.label + ":** " + parts;
-    return "• " + f.label + ": " + parts;
+    var label = RESPICE_SHORT_LABELS[f.rule];
+    var text = f.detail;
+    if (f.items.length) text = respiceSummarizeItems(f.items, 3);
+    if (markdown) return "**" + label + ":** " + text;
+    return respiceBold(label) + ": " + text;
   });
   var head = "Check before sending:";
-  return respiceClip(head + "\n" + lines.join("\n"));
+  var nl = "\n";
+  if (markdown) nl = "\n\n"; // Smart Alerts Markdown needs a blank line per line break
+  return respiceClip(head + nl + lines.join(nl));
 }
 
 // ---------------------------------------------------------------------------
@@ -426,15 +494,14 @@ function onMessageSendHandler(event) {
   try {
     settings = respiceLoadSettings();
     diag.push("settings ok");
-    var r = settings.rules;
-    if (!r.external && !r.mailingList && !r.tooMany && !r.replyAll) return finish({ allowEvent: true }, "all rules off");
+    if (!respiceAnySendRule(settings)) return finish({ allowEvent: true }, "no rule set to stop at Send");
 
     respiceGatherInput(Office.context.mailbox.item, diag)
       .then(function (input) {
         var d = respiceDescribeInput(input);
         diag.push("composeType " + d.composeType + "; inReplyTo " + d.inReplyTo + "; replyBySubject " + d.replyBySubject + "; to/cc/bcc " + d.to + "/" + d.cc + "/" + d.bcc);
         respiceTrace("gathered", d);
-        var findings = respiceEvaluate(input, settings);
+        var findings = respiceFilterForSend(respiceEvaluate(input, settings), settings);
         if (!findings.length) return finish({ allowEvent: true }, "no warnings");
         finish(
           {
@@ -477,30 +544,31 @@ function respiceBold(text) {
   return out;
 }
 
-var RESPICE_BAR_LABELS = {
-  external: respiceBold("External"),
-  mailingList: respiceBold("List")
-};
+function respiceBarValue(f) {
+  if (f.rule === "tooMany") return f.count + " (limit " + f.limit + ")";
+  if (f.rule === "replyAll") return f.count + " people";
+  var text = f.items[0];
+  if (f.items.length > 1) text += " +" + (f.items.length - 1);
+  return text;
+}
 
+// No leading sign: Outlook draws its own icon on the bar.
 function respiceFormatBar(findings) {
   var parts = findings.map(function (f) {
-    if (f.rule === "tooMany") return f.detail;
-    if (f.rule === "replyAll") return "Reply to more than the sender";
-    return RESPICE_BAR_LABELS[f.rule] + ": " + respiceSummarizeItems(f.items, 1);
+    return respiceBold(RESPICE_SHORT_LABELS[f.rule]) + ": " + respiceBarValue(f);
   });
-  var text = "⚠ " + parts.join(" · ");
+  var text = parts.join(" · ");
   if (text.length > RESPICE_BAR_MAX) text = text.slice(0, RESPICE_BAR_MAX - 1) + "…";
   return text;
 }
 
-// ErrorMessage = Outlook's warning-style bar (alert icon, can't be customised, no persistence option).
-// It stays until the user dismisses it or Respice removes/replaces it.
+// InformationalMessage = Outlook's neutral info bar (info icon; the custom icon shows only in classic Windows).
 function respiceBarDetails(text) {
-  var type = "errorMessage";
+  var type = "informationalMessage";
   if (Office.MailboxEnums && Office.MailboxEnums.ItemNotificationMessageType) {
-    type = Office.MailboxEnums.ItemNotificationMessageType.ErrorMessage;
+    type = Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage;
   }
-  return { type: type, message: text };
+  return { type: type, message: text, icon: "Icon.16x16", persistent: false };
 }
 
 // Shows, updates or removes the single Respice bar. Never rejects.
@@ -549,7 +617,7 @@ function onComposeChangedHandler(event) {
     var settings = respiceLoadSettings();
     respiceGatherInput(item, diag)
       .then(function (input) {
-        var findings = respiceEvaluate(input, settings);
+        var findings = respiceFilterForBar(respiceEvaluate(input, settings), settings);
         return respiceTimed("bar", function () { return respiceUpdateBar(item, findings); }, "timeout", diag);
       })
       .then(finish, function (e) {
@@ -594,6 +662,9 @@ if (typeof module !== "undefined" && module.exports) {
     respiceIsForwardSubject: respiceIsForwardSubject,
     RESPICE_CONFIG: RESPICE_CONFIG,
     respiceFormatBar: respiceFormatBar,
+    respiceAnySendRule: respiceAnySendRule,
+    respiceFilterForSend: respiceFilterForSend,
+    respiceFilterForBar: respiceFilterForBar,
     respiceBold: respiceBold,
     onMessageSendHandler: onMessageSendHandler,
     onComposeChangedHandler: onComposeChangedHandler

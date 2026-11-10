@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Respice for Outlook</title>
-  <link rel="stylesheet" href="taskpane.css?v=1.1.1">
+  <link rel="stylesheet" href="taskpane.css?v=1.2.0">
   <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <script>var RESPICE_SKIP_ASSOCIATE = true;</script>
-  <script type="text/javascript" src="launchevent.js?v=1.1.1"></script>
-  <script type="text/javascript" src="taskpane.js?v=1.1.1"></script>
+  <script type="text/javascript" src="launchevent.js?v=1.2.0"></script>
+  <script type="text/javascript" src="taskpane.js?v=1.2.0"></script>
 </head>
 <body>
   <main>
@@ -17,29 +17,58 @@
 
     <section>
       <h2>Rules</h2>
+      <p class="hint"><b>Bar</b> = warning line above the mail while you write. <b>Check at Send</b> = also a dialog when you press Send.</p>
 
       <div class="rule">
-        <label class="switch"><input type="checkbox" id="rule-external"> <span>1. External recipient</span></label>
+        <div class="rule-head"><span>1. External recipient</span>
+          <select id="mode-external" aria-label="1. External recipient">
+            <option value="send">Bar + check at Send</option>
+            <option value="bar">Bar only</option>
+            <option value="sendonly">Check at Send only</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
         <label for="internal-domains" class="field-label">Internal domains (one per line, subdomains included)</label>
         <textarea id="internal-domains" rows="3" spellcheck="false"></textarea>
         <p class="hint" id="internal-hint"></p>
       </div>
 
       <div class="rule">
-        <label class="switch"><input type="checkbox" id="rule-list"> <span>2. Mailing list</span></label>
+        <div class="rule-head"><span>2. Mailing list</span>
+          <select id="mode-list" aria-label="2. Mailing list">
+            <option value="send">Bar + check at Send</option>
+            <option value="bar">Bar only</option>
+            <option value="sendonly">Check at Send only</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
         <label for="list-patterns" class="field-label">List addresses (one per line, <code>*</code> and <code>?</code> wildcards allowed, <code>#</code> starts a comment)</label>
         <textarea id="list-patterns" rows="6" spellcheck="false" placeholder="all@example.com&#10;*-all@example.com&#10;dl-*@example.com"></textarea>
         <label class="check"><input type="checkbox" id="treat-dl"> Also treat anything Outlook marks as a distribution list as a list</label>
       </div>
 
       <div class="rule">
-        <label class="switch"><input type="checkbox" id="rule-toomany"> <span>3. Too many recipients</span></label>
+        <div class="rule-head"><span>3. Too many recipients</span>
+          <select id="mode-toomany" aria-label="3. Too many recipients">
+            <option value="send">Bar + check at Send</option>
+            <option value="bar">Bar only</option>
+            <option value="sendonly">Check at Send only</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
         <label for="max-recipients" class="field-label">Warn when To + Cc + Bcc exceeds</label>
         <input type="number" id="max-recipients" min="1" step="1">
       </div>
 
       <div class="rule">
-        <label class="switch"><input type="checkbox" id="rule-replyall"> <span>4. Reply to more than the sender</span></label>
+        <div class="rule-head"><span>4. Reply to more than the sender</span>
+          <select id="mode-replyall" aria-label="4. Reply to more than the sender">
+            <option value="send">Bar + check at Send</option>
+            <option value="bar">Bar only</option>
+            <option value="sendonly">Check at Send only</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
         <p class="hint">Outlook does not tell add-ins Reply from Reply all, so this fires on any reply (detected by Outlook, by the original-message link, or by an RE:/AW:/Odg: subject) with more than one recipient.</p>
       </div>
     </section>

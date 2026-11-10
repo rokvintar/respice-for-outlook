@@ -69,3 +69,5 @@ details { margin-top: 16px; }
 details > summary { cursor: pointer; font-weight: 600; color: var(--muted); }
 details[open] > summary { margin-bottom: 6px; }
 #test-details-box { margin-top: 8px; }
+.rule-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-weight: 600; flex-wrap: wrap; }
+.rule-head select { font: inherit; font-weight: 400; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--field); color: var(--fg); }

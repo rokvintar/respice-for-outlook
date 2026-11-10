@@ -111,7 +111,7 @@ test("handler fails open and blocks only on findings", async () => {
   assert.deepEqual(await run(item([rcp("a@example.com")]), null), { allowEvent: true });
   const blocked = await run(item([rcp("x@customer.com")]), null);
   assert.equal(blocked.allowEvent, false);
-  assert.match(blocked.errorMessage, /External recipient: x@customer\.com/);
+  assert.match(blocked.errorMessage, /𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: x@customer\.com/);
   const broken = { to: { getAsync: () => { throw new Error("boom"); } } };
   assert.deepEqual(await run(broken, null), { allowEvent: true });
   delete global.Office;
@@ -134,7 +134,7 @@ test("an Outlook call that never answers is timed out and the rest still evaluat
   mockOffice({ to: ok([rcp("x@customer.com")]), cc: never, bcc: ok([]), getComposeTypeAsync: composeNew }, null);
   const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
   assert.equal(res.allowEvent, false);
-  assert.match(res.errorMessage, /External recipient/);
+  assert.match(res.errorMessage, /𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹/);
   delete global.Office;
 });
 
@@ -231,7 +231,7 @@ test("send handler reads the subject and warns on a reply-all reported as newMai
   }, null);
   const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
   assert.equal(res.allowEvent, false);
-  assert.match(res.errorMessage, /Reply to more than the sender/);
+  assert.match(res.errorMessage, /𝗥𝗲𝗽𝗹𝘆 𝗮𝗹𝗹: goes to 2 people/);
   delete global.Office;
 });
 
@@ -260,7 +260,7 @@ test("send handler uses inReplyTo from the item", async () => {
   }, null);
   const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
   assert.equal(res.allowEvent, false);
-  assert.match(res.errorMessage, /Reply to more than the sender/);
+  assert.match(res.errorMessage, /𝗥𝗲𝗽𝗹𝘆 𝗮𝗹𝗹: goes to 2 people/);
   delete global.Office;
 });
 
@@ -303,10 +303,10 @@ test("bar is shown with all findings when recipients are risky", async () => {
   const [op, key, d] = calls[0];
   assert.equal(op, "replace");
   assert.equal(key, "respiceWarning");
-  assert.equal(d.type, "errorMessage");
-  assert.equal("icon" in d, false);
-  assert.equal("persistent" in d, false);
-  assert.equal(d.message, "⚠ 𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: x@customer.com · 𝗟𝗶𝘀𝘁: all@example.com");
+  assert.equal(d.type, "informationalMessage");
+  assert.equal(d.icon, "Icon.16x16");
+  assert.equal(d.persistent, false);
+  assert.equal(d.message, "𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: x@customer.com · 𝗟𝗶𝘀𝘁: all@example.com");
   delete global.Office;
 });
 
@@ -355,13 +355,94 @@ test("bar text stays within 150 characters and covers reply-all and count", () =
   const f = r.respiceEvaluate({ to: many, composeType: "reply", userEmail: me }, { listPatterns: ["*@customer-number-1.com"] });
   const text = r.respiceFormatBar(f);
   assert.ok(text.length <= 150, String(text.length));
-  assert.ok(text.startsWith("⚠ 𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: "), text);
+  assert.ok(text.startsWith("𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: "), text);
   assert.match(text, /\+29/);
+  assert.ok(!text.startsWith("⚠"));
   const g = r.respiceEvaluate({ to: [rcp("a@example.com"), rcp("b@example.com")], composeType: "reply", userEmail: me }, {});
-  assert.equal(r.respiceFormatBar(g), "⚠ Reply to more than the sender");
+  assert.equal(r.respiceFormatBar(g), "𝗥𝗲𝗽𝗹𝘆 𝗮𝗹𝗹: 2 people");
 });
 
 test("respiceBold converts letters only and keeps everything else", () => {
   assert.equal(r.respiceBold("List"), "𝗟𝗶𝘀𝘁");
   assert.equal(r.respiceBold("A-z 9:"), "𝗔-𝘇 9:");
+});
+
+test("bar and dialog use the same short labels for all 4 rules", () => {
+  const many = Array.from({ length: 23 }, (_, i) => rcp(`p${i}@example.com`));
+  const input = { to: many.concat([rcp("john@customer.example"), rcp("all@example.com")]), composeType: "reply", userEmail: me };
+  const f = r.respiceEvaluate(input, { listPatterns: ["all@example.com"] });
+  assert.equal(r.respiceFormatBar(f), "𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: john@customer.example · 𝗟𝗶𝘀𝘁: all@example.com · 𝗥𝗲𝗰𝗶𝗽𝗶𝗲𝗻𝘁𝘀: 25 (limit 15) · 𝗥𝗲𝗽𝗹𝘆 𝗮𝗹𝗹: 25 people");
+  assert.equal(r.respiceFormatMessage(f, false),
+    "Check before sending:\n𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: john@customer.example\n𝗟𝗶𝘀𝘁: all@example.com\n𝗥𝗲𝗰𝗶𝗽𝗶𝗲𝗻𝘁𝘀: 25 (limit 15)\n𝗥𝗲𝗽𝗹𝘆 𝗮𝗹𝗹: goes to 25 people");
+  assert.equal(r.respiceFormatMessage(f, true),
+    "Check before sending:\n\n**External:** john@customer.example\n\n**List:** all@example.com\n\n**Recipients:** 25 (limit 15)\n\n**Reply all:** goes to 25 people");
+});
+
+// --- Per-rule mode: bar only vs. bar + Send (v1.2.0) ---
+test("atSend defaults to true for every rule and old settings keep stopping at Send", () => {
+  const s = r.respiceNormalizeSettings({ rules: { external: true } }); // settings saved before 1.2.0
+  assert.deepEqual(s.atSend, { external: true, mailingList: true, tooMany: true, replyAll: true });
+});
+
+test("a rule set to 'bar only' shows in the bar but does not stop Send", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  const stored = { atSend: { external: false } };
+  // Send: external only -> allowed
+  mockOffice({ to: ok([rcp("x@customer.com")]), cc: ok([]), bcc: ok([]), getComposeTypeAsync: composeNew }, stored);
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.deepEqual(res, { allowEvent: true });
+  // Bar: still shown
+  const { item, calls } = barItem([rcp("x@customer.com")]);
+  mockOffice(item, stored);
+  await new Promise((resolve) => r.onComposeChangedHandler({ completed: resolve }));
+  assert.equal(calls[0][0], "replace");
+  assert.match(calls[0][2].message, /𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹/);
+  delete global.Office;
+});
+
+test("Send dialog lists only the rules set to stop at Send", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  mockOffice({ to: ok([rcp("x@customer.com"), rcp("all@example.com")]), cc: ok([]), bcc: ok([]), getComposeTypeAsync: composeNew },
+    { listPatterns: ["all@example.com"], atSend: { external: false } });
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.equal(res.allowEvent, false);
+  assert.match(res.errorMessage, /𝗟𝗶𝘀𝘁: all@example\.com/);
+  assert.doesNotMatch(res.errorMessage, /𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹/);
+  delete global.Office;
+});
+
+test("respiceAnySendRule: off rules and bar-only rules do not count", () => {
+  assert.equal(r.respiceAnySendRule({}), true);
+  assert.equal(r.respiceAnySendRule({ atSend: { external: false, mailingList: false, tooMany: false, replyAll: false } }), false);
+  assert.equal(r.respiceAnySendRule({ rules: { external: false, mailingList: false, tooMany: false }, atSend: { replyAll: false } }), false);
+  assert.equal(r.respiceAnySendRule({ rules: { external: false, mailingList: false, tooMany: false } }), true);
+});
+
+// --- "Check at Send only" mode (v1.2.0) ---
+test("inBar defaults to true; older settings keep showing the bar", () => {
+  assert.deepEqual(r.respiceNormalizeSettings({ rules: { external: true } }).inBar,
+    { external: true, mailingList: true, tooMany: true, replyAll: true });
+});
+
+test("'Check at Send only': no bar, but Send still stops", async () => {
+  r.RESPICE_CONFIG.stepTimeoutMs = 50;
+  r.RESPICE_CONFIG.watchdogMs = 1000;
+  const stored = { inBar: { external: false } };
+  const { item, calls } = barItem([rcp("x@customer.com")]);
+  mockOffice(item, stored);
+  await new Promise((resolve) => r.onComposeChangedHandler({ completed: resolve }));
+  assert.deepEqual(calls, [["remove", "respiceWarning"]]);
+  mockOffice({ to: ok([rcp("x@customer.com")]), cc: ok([]), bcc: ok([]), getComposeTypeAsync: composeNew }, stored);
+  const res = await new Promise((resolve) => r.onMessageSendHandler({ completed: resolve }));
+  assert.equal(res.allowEvent, false);
+  assert.match(res.errorMessage, /𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: x@customer\.com/);
+  delete global.Office;
+});
+
+test("bar shows only rules set to appear in the bar", () => {
+  const f = r.respiceEvaluate({ to: [rcp("x@customer.com"), rcp("all@example.com")], userEmail: me }, { listPatterns: ["all@example.com"] });
+  const kept = r.respiceFilterForBar(f, { inBar: { external: false } });
+  assert.deepEqual(kept.map((x) => x.rule), ["mailingList"]);
 });

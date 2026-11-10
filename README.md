@@ -4,23 +4,25 @@
 
 It works at two moments:
 
-- **While you write:** when you open a new mail, reply or forward, and whenever you change To, Cc or Bcc, a one-line warning bar above the message shows what Respice would warn about, e.g. `⚠ 𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: john@customer.com · 𝗟𝗶𝘀𝘁: all@example.com` (labels use Unicode bold letters, since the bar is plain text). The bar disappears when the issue is gone.
+- **While you write:** when you open a new mail, reply or forward, and whenever you change To, Cc or Bcc, a one-line info bar above the message shows what Respice would warn about, e.g. `𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: john@customer.com · 𝗟𝗶𝘀𝘁: all@example.com · 𝗥𝗲𝗽𝗹𝘆 𝗮𝗹𝗹: 7 people` (labels use Unicode bold letters, since the bar is plain text). The bar disappears when the issue is gone.
 - **When you press Send:** it checks To, Cc and Bcc again. If any enabled rule fires, Outlook shows a dialog with **Don't Send** / **Send Anyway**.
+
+Each rule has a mode in the settings: **Bar + check at Send** (default: also a dialog when you press Send), **Bar only** (warning while writing, Send goes through), **Check at Send only** (no bar, only the dialog at Send; useful when Outlook's own External recipients MailTip already covers the bar), or **Off**.
 
 | # | Rule | Fires when | Settings |
 |---|------|------------|----------|
-| 1 | External recipient | any recipient is outside your internal domains | on/off, internal domains (default: your own address's domain, subdomains included) |
-| 2 | Mailing list | any recipient matches a list pattern, or Outlook marks it as a distribution list | on/off, list addresses with `*` / `?` wildcards, DL auto-detection on/off |
-| 3 | Too many recipients | unique To + Cc + Bcc recipients exceed X | on/off, X (default 15) |
-| 4 | Reply to more than the sender | the message is a reply (compose type, `inReplyTo`, or `RE:`-style subject) and has more than one recipient | on/off |
+| 1 | External recipient | any recipient is outside your internal domains | mode, internal domains (default: your own address's domain, subdomains included) |
+| 2 | Mailing list | any recipient matches a list pattern, or Outlook marks it as a distribution list | mode, list addresses with `*` / `?` wildcards, DL auto-detection on/off |
+| 3 | Too many recipients | unique To + Cc + Bcc recipients exceed X | mode, X (default 15) |
+| 4 | Reply to more than the sender | the message is a reply (compose type, `inReplyTo`, or `RE:`-style subject) and has more than one recipient | mode |
 
 Example dialog:
 
 ```
 Check before sending:
-• External recipient: john@customer.com · outside example.com
-• Mailing list: all@example.com
-• Reply to more than the sender: this reply goes to 7 recipients. Did you mean Reply all?
+𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: john@customer.com
+𝗟𝗶𝘀𝘁: all@example.com
+𝗥𝗲𝗽𝗹𝘆 𝗮𝗹𝗹: goes to 7 people
 ```
 
 ## Privacy
@@ -87,7 +89,7 @@ While composing, **Check now** runs the rules against the current draft without 
 - **Distribution lists aren't expanded.** A list counts as one recipient for rule 3, and external members hidden inside a list aren't detected by rule 1.
 - **Fail-open:** if the add-in can't load (offline, GitHub Pages down), Outlook lets the mail go (`SendMode="PromptUser"`).
 - The dialog text is capped at about 500 characters. Long address lists are shortened to "+N more".
-- **The warning bar is informational:** it never blocks; the Send dialog is the gate. Its text is capped at 150 characters (Outlook's limit). It uses Outlook's warning style (alert icon); you can dismiss it, and it comes back on the next recipient change if the issue remains.
+- **The warning bar is informational:** it never blocks; the Send dialog is the gate. Its text is capped at 150 characters (Outlook's limit). It uses Outlook's info style (info icon; the Respice icon appears only in classic Outlook on Windows); you can dismiss it, and it comes back on the next recipient change if the issue remains.
 - **Reply in the reading pane on Mac:** when the Send dialog has to appear, Outlook first opens the reply in its own window. That's Outlook's behaviour for add-in dialogs and can't be changed by the add-in; the warning bar lets you fix things before pressing Send.
 
 ## Development
