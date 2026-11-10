@@ -7,11 +7,11 @@
   xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
   xsi:type="MailApp">
   <Id>247814bb-cadc-420c-81a7-e9516e56fecf</Id>
-  <Version>1.3.0.0</Version>
+  <Version>{{VERSION}}.0</Version>
   <ProviderName>Respice for Outlook</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Respice for Outlook"/>
-  <Description DefaultValue="Warns before sending to external recipients, mailing lists, too many recipients, or replying to more than the sender."/>
+  <Description DefaultValue="Version {{VERSION}}. Warns before sending to external recipients, mailing lists, too many recipients, or replying to more than the sender."/>
   <IconUrl DefaultValue="{{BASE_URL}}/assets/icon-64.png"/>
   <HighResolutionIconUrl DefaultValue="{{BASE_URL}}/assets/icon-128.png"/>
   <SupportUrl DefaultValue="{{BASE_URL}}/"/>
@@ -143,7 +143,7 @@
           <bt:String id="SettingsButton.Label" DefaultValue="Respice settings"/>
         </bt:ShortStrings>
         <bt:LongStrings>
-          <bt:String id="SettingsButton.Tooltip" DefaultValue="Configure the send-time recipient checks."/>
+          <bt:String id="SettingsButton.Tooltip" DefaultValue="Configure the recipient checks (v{{VERSION}})."/>
         </bt:LongStrings>
       </Resources>
     </VersionOverrides>

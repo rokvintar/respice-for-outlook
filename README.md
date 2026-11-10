@@ -96,7 +96,7 @@ npm test
 
 `src/launchevent.js` must stay ECMAScript 2016 with no `? :` operators, because classic Outlook on Windows before Version 2403 won't load it otherwise. `test/syntax.test.js` enforces this.
 
-Bump `<Version>` in `manifest.template.xml` and rebuild the manifest whenever the manifest changes. After a manifest change, remove the add-in in Outlook and add the new `manifest.xml` again (copy your list addresses first; settings may be reset). Code-only changes go live as soon as GitHub Pages redeploys.
+The version lives only in `package.json`. `scripts/build-manifest.mjs` writes it into the manifest's `<Version>`, the description shown in Outlook's add-in details, and the settings-button tooltip. Bump it and rebuild the manifest whenever the manifest changes; also update the `?v=` cache-busting tags in `src/*.html`. After a manifest change, remove the add-in in Outlook and add the new `manifest.xml` again (copy your list addresses first; settings may be reset). Code-only changes go live as soon as GitHub Pages redeploys.
 
 ## Microsoft Marketplace
 

@@ -17,9 +17,15 @@ if (url.protocol !== "https:") {
   process.exit(1);
 }
 const base = url.href.replace(/\/+$/, "");
+const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version; // single source of truth
+if (!/^\d+\.\d+\.\d+$/.test(version)) {
+  console.error(`package.json version must be x.y.z, got "${version}"`);
+  process.exit(1);
+}
 const xml = readFileSync(join(root, "manifest.template.xml"), "utf8")
   .replace(/^<!-- Template\..*-->\n/m, "")
   .replaceAll("{{BASE_URL}}", base)
-  .replaceAll("{{ORIGIN}}", url.origin);
+  .replaceAll("{{ORIGIN}}", url.origin)
+  .replaceAll("{{VERSION}}", version);
 writeFileSync(join(root, "manifest.xml"), xml);
-console.log(`manifest.xml written for ${base}`);
+console.log(`manifest.xml v${version} written for ${base}`);
