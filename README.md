@@ -4,7 +4,7 @@
 
 It works at two moments:
 
-- **While you write:** when you open a new mail, reply or forward, and whenever you change To, Cc or Bcc, a one-line bar above the message shows what Respice would warn about, e.g. `Respice: External: john@customer.com · List: all@example.com`. The bar disappears when the issue is gone.
+- **While you write:** when you open a new mail, reply or forward, and whenever you change To, Cc or Bcc, a one-line warning bar above the message shows what Respice would warn about, e.g. `⚠ 𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: john@customer.com · 𝗟𝗶𝘀𝘁: all@example.com` (labels use Unicode bold letters, since the bar is plain text). The bar disappears when the issue is gone.
 - **When you press Send:** it checks To, Cc and Bcc again. If any enabled rule fires, Outlook shows a dialog with **Don't Send** / **Send Anyway**.
 
 | # | Rule | Fires when | Settings |
@@ -87,7 +87,7 @@ While composing, **Check now** runs the rules against the current draft without 
 - **Distribution lists aren't expanded.** A list counts as one recipient for rule 3, and external members hidden inside a list aren't detected by rule 1.
 - **Fail-open:** if the add-in can't load (offline, GitHub Pages down), Outlook lets the mail go (`SendMode="PromptUser"`).
 - The dialog text is capped at about 500 characters. Long address lists are shortened to "+N more".
-- **The warning bar is informational:** it never blocks; the Send dialog is the gate. Its text is capped at 150 characters (Outlook's limit). On web, Mac and new Outlook it shows Outlook's standard info icon; the Respice icon appears only in classic Outlook on Windows.
+- **The warning bar is informational:** it never blocks; the Send dialog is the gate. Its text is capped at 150 characters (Outlook's limit). It uses Outlook's warning style (alert icon); you can dismiss it, and it comes back on the next recipient change if the issue remains.
 - **Reply in the reading pane on Mac:** when the Send dialog has to appear, Outlook first opens the reply in its own window. That's Outlook's behaviour for add-in dialogs and can't be changed by the add-in; the warning bar lets you fix things before pressing Send.
 
 ## Development

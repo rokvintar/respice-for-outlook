@@ -464,11 +464,22 @@ function onMessageSendHandler(event) {
 var RESPICE_BAR_KEY = "respiceWarning"; // notification key, max 32 chars
 var RESPICE_BAR_MAX = 150;              // notification text limit
 
+// The bar is plain text only, so labels use Unicode "mathematical sans-serif bold" letters to look bold.
+// Built at runtime from ASCII to keep this file free of astral-plane characters.
+function respiceBold(text) {
+  var out = "";
+  for (var i = 0; i < text.length; i++) {
+    var c = text.charCodeAt(i);
+    if (c >= 65 && c <= 90) out += String.fromCodePoint(0x1d5d4 + c - 65);
+    else if (c >= 97 && c <= 122) out += String.fromCodePoint(0x1d5ee + c - 97);
+    else out += text.charAt(i);
+  }
+  return out;
+}
+
 var RESPICE_BAR_LABELS = {
-  external: "External",
-  mailingList: "List",
-  tooMany: "Recipients",
-  replyAll: "Reply to"
+  external: respiceBold("External"),
+  mailingList: respiceBold("List")
 };
 
 function respiceFormatBar(findings) {
@@ -477,17 +488,19 @@ function respiceFormatBar(findings) {
     if (f.rule === "replyAll") return "Reply to more than the sender";
     return RESPICE_BAR_LABELS[f.rule] + ": " + respiceSummarizeItems(f.items, 1);
   });
-  var text = "Respice: " + parts.join(" · ");
+  var text = "⚠ " + parts.join(" · ");
   if (text.length > RESPICE_BAR_MAX) text = text.slice(0, RESPICE_BAR_MAX - 1) + "…";
   return text;
 }
 
+// ErrorMessage = Outlook's warning-style bar (alert icon, can't be customised, no persistence option).
+// It stays until the user dismisses it or Respice removes/replaces it.
 function respiceBarDetails(text) {
-  var type = "informationalMessage";
+  var type = "errorMessage";
   if (Office.MailboxEnums && Office.MailboxEnums.ItemNotificationMessageType) {
-    type = Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage;
+    type = Office.MailboxEnums.ItemNotificationMessageType.ErrorMessage;
   }
-  return { type: type, message: text, icon: "Icon.16x16", persistent: false };
+  return { type: type, message: text };
 }
 
 // Shows, updates or removes the single Respice bar. Never rejects.
@@ -581,6 +594,7 @@ if (typeof module !== "undefined" && module.exports) {
     respiceIsForwardSubject: respiceIsForwardSubject,
     RESPICE_CONFIG: RESPICE_CONFIG,
     respiceFormatBar: respiceFormatBar,
+    respiceBold: respiceBold,
     onMessageSendHandler: onMessageSendHandler,
     onComposeChangedHandler: onComposeChangedHandler
   };

@@ -303,9 +303,10 @@ test("bar is shown with all findings when recipients are risky", async () => {
   const [op, key, d] = calls[0];
   assert.equal(op, "replace");
   assert.equal(key, "respiceWarning");
-  assert.equal(d.type, "informationalMessage");
-  assert.equal(d.icon, "Icon.16x16");
-  assert.match(d.message, /^Respice: External: x@customer\.com · List: all@example\.com$/);
+  assert.equal(d.type, "errorMessage");
+  assert.equal("icon" in d, false);
+  assert.equal("persistent" in d, false);
+  assert.equal(d.message, "⚠ 𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: x@customer.com · 𝗟𝗶𝘀𝘁: all@example.com");
   delete global.Office;
 });
 
@@ -354,7 +355,13 @@ test("bar text stays within 150 characters and covers reply-all and count", () =
   const f = r.respiceEvaluate({ to: many, composeType: "reply", userEmail: me }, { listPatterns: ["*@customer-number-1.com"] });
   const text = r.respiceFormatBar(f);
   assert.ok(text.length <= 150, String(text.length));
-  assert.match(text, /^Respice: External: .+ \+29/);
+  assert.ok(text.startsWith("⚠ 𝗘𝘅𝘁𝗲𝗿𝗻𝗮𝗹: "), text);
+  assert.match(text, /\+29/);
   const g = r.respiceEvaluate({ to: [rcp("a@example.com"), rcp("b@example.com")], composeType: "reply", userEmail: me }, {});
-  assert.equal(r.respiceFormatBar(g), "Respice: Reply to more than the sender");
+  assert.equal(r.respiceFormatBar(g), "⚠ Reply to more than the sender");
+});
+
+test("respiceBold converts letters only and keeps everything else", () => {
+  assert.equal(r.respiceBold("List"), "𝗟𝗶𝘀𝘁");
+  assert.equal(r.respiceBold("A-z 9:"), "𝗔-𝘇 9:");
 });
